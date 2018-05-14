@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27428.2002
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Seagal_TransformHttpContentToHttps", "Seagal_TransformHttpContentToHttps\Seagal_TransformHttpContentToHttps.csproj", "{20025C4C-22A1-4F9D-A0C0-C932397F2A20}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{20025C4C-22A1-4F9D-A0C0-C932397F2A20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20025C4C-22A1-4F9D-A0C0-C932397F2A20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20025C4C-22A1-4F9D-A0C0-C932397F2A20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20025C4C-22A1-4F9D-A0C0-C932397F2A20}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BEFC36A9-66FA-420B-B097-7D69A8387AD2}
+	EndGlobalSection
+EndGlobal
