@@ -2,6 +2,6 @@
 {
     public interface IWPClientFactory
     {
-        IWPClient CreateClient( string connectionString, ITableNameGenerator generator );
+        IWPClient CreateClient( string connectionString);
     }
 }

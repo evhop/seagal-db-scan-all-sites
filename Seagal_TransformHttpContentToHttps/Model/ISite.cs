@@ -7,7 +7,6 @@ namespace Seagal_TransformHttpContentToHttps.Model
     public interface ISite: ILogTransformer
     {
         Regex HttpRegex { get; }
-        ITableNameGenerator Generator { get; }
         Settings Settings { get; }
         string Path { get; }
         long Index { get; }

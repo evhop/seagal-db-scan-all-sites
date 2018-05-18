@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
-namespace Migration.Analys
+namespace Seagal_TransformHttpContentToHttps.Analys
 {
     public interface IAnalysRepository
     {
-        IReadOnlyList<IAnalys> Analysis { get; }
-        IAnalys GetAnalys(string name);
+        IReadOnlyList<ISourceRewrites> Analysis { get; }
+        ISourceRewrites GetAnalys(string name);
     }
 }

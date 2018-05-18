@@ -7,8 +7,5 @@ namespace Seagal_TransformHttpContentToHttps.Model
     public interface IContext: ICommandContext
     {
         Settings Settings { get; }
-
-        IEnumerable<ITableNameGenerator> GetGenerators();
-        IEnumerable<ISite> GetSites();
     }
 }

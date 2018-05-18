@@ -1,27 +1,23 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyModel;
-using Migration.Analys;
-using Migration.Core;
+﻿using Microsoft.Extensions.DependencyModel;
 using StructureMap;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 
-namespace Migration.Transforms
+namespace Seagal_TransformHttpContentToHttps.Analys
 {
     public class AnalysRepository : IAnalysRepository
     {
         private static HashSet<Type> _analysis = new HashSet<Type>();
-        private static List<IAnalys> _instances = new List<IAnalys>();
+        private static List<ISourceRewrites> _instances = new List<ISourceRewrites>();
 
         private static void RegisterAnalys( IServiceProvider serviceProvider, Type type )
         {
             if( _analysis.Add( type ) )
             {
                 var container = (serviceProvider as StructureMapServiceProvider).Container;
-                var analys = container.GetInstance( type ) as IAnalys;
+                var analys = container.GetInstance( type ) as ISourceRewrites;
                 if( analys == null )
                 {
                     _analysis.Remove( type );
@@ -41,7 +37,7 @@ namespace Migration.Transforms
                 {
                     var assembly = Assembly.Load( new AssemblyName( library.Name ) );
                     var types = assembly.ExportedTypes;
-                    var analysInterfaceType = typeof( IAnalys );
+                    var analysInterfaceType = typeof( ISourceRewrites );
                     foreach( var type in types )
                     {
                         if( analysInterfaceType.IsAssignableFrom( type ) )
@@ -60,8 +56,8 @@ namespace Migration.Transforms
             }
         }
 
-        public IReadOnlyList<IAnalys> Analysis => _instances.AsReadOnly();
+        public IReadOnlyList<ISourceRewrites> Analysis => _instances.AsReadOnly();
 
-        public IAnalys GetAnalys( string name ) => _instances?.SingleOrDefault( i => i.Name == name );
+        public ISourceRewrites GetAnalys( string name ) => _instances?.SingleOrDefault( i => i.Name == name );
     }
 }

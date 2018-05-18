@@ -7,6 +7,6 @@ namespace Seagal_TransformHttpContentToHttps.WPClient.Model
 	{
 		void UpdatePosts( IEnumerable<Post> contents );
 		void UpdatePosts( IConnection connection, IEnumerable<Post> contents );
-        IEnumerable<Post> GetPosts();
+        IEnumerable<Post> GetPosts(IConnection connection);
     }
 }

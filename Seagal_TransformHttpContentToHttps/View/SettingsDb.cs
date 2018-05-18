@@ -16,6 +16,8 @@ namespace Seagal_TransformHttpContentToHttps.View
         [JsonProperty("password")]
         public string Password { get; set; }
 
+        public string Schema { get; set; }
+
         public string Characterset { get; set; } = "utf8mb4";
     }
 }

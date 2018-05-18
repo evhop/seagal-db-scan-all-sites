@@ -4,6 +4,6 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 {
     public class WPClientFactory : IWPClientFactory
     {
-        public IWPClient CreateClient( string connectionString, ITableNameGenerator generator ) => new WPClient( connectionString, generator );
+        public IWPClient CreateClient( string connectionString) => new WPClient( connectionString);
     }
 }

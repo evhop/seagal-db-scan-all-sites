@@ -16,20 +16,19 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
         #region Fields
 
         private SSHTunnel _sshTunnel;
-        private ITableNameGenerator _tableNameGenerator;
         private string _connectionString = null;
-        private List<TableSchema> _dbTableSchema;
+        private List<string> _dbTableSchema;
 
         #endregion
 
         #region Properties
 
-        private string PostsTable => _tableNameGenerator.GetName("posts");
-        private string PostMetaTable => _tableNameGenerator.GetName("postmeta");
-        private string CommentMetaTable => _tableNameGenerator.GetName("commentmeta");
-        private string CommentsTable => _tableNameGenerator.GetName("comments");
-        private string UsersTable => _tableNameGenerator.GetName("users");
-        private string UserMetaTable => _tableNameGenerator.GetName("usermeta");
+        private string PostsTable => _dbTableSchema.Find(t => t.Contains("posts"));
+        private string PostMetaTable => _dbTableSchema.Find(t => t.Contains("postmeta")).ToString();
+        private string CommentMetaTable => _dbTableSchema.Find(t => t.Contains("commentmeta")).ToString();
+        private string CommentsTable => _dbTableSchema.Find(t => t.Contains("comments")).ToString();
+        private string UsersTable => _dbTableSchema.Find(t => t.Contains("users")).ToString();
+        private string UserMetaTable => _dbTableSchema.Find(t => t.Contains("usermeta")).ToString();
 
         public int MaxAllowedPacket { get; }
 
@@ -37,22 +36,49 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         #region Constructors
 
-        public WPClient(string connectionString, ITableNameGenerator tableNameGenerator)
+        public WPClient(string connectionString)
         {
-            _tableNameGenerator = tableNameGenerator ?? throw new ArgumentNullException(nameof(tableNameGenerator));
             _connectionString = connectionString;
             MaxAllowedPacket = GetMaxAllowedPacket();
         }
 
-        public WPClient(string connectionString, ITableNameGenerator tableNameGenerator, string host, string username, string password)
-            : this(connectionString, tableNameGenerator) => StartSshTunnel(host, username, password);
+        public WPClient(string connectionString, string host, string username, string password)
+            : this(connectionString) => StartSshTunnel(host, username, password);
 
         #endregion
 
         #region Methods
-        public void GetTableSchema(IConnection connection)
+        public void GetTableSchema(IConnection connection, string schema)
         {
-            var sql = $"SELECT distinct TABLE_SCHEMA, table_name FROM information_schema.tables " +
+            string databaseSchema = schema + '.';
+            var sql = $"SELECT distinct concat('{databaseSchema}',table_name) as tableSchemaName FROM information_schema.tables " +
+                $"WHERE TABLE_SCHEMA = '{schema}'" +
+                 "and (table_name like 'wp%posts' or " +
+                    "table_name like 'wp%postmeta' or " +
+                    "table_name like 'wp%comments' or " +
+                    "table_name like 'wp%commentmeta' or " +
+                    "table_name like 'wp%users' or " +
+                    "table_name like 'wp%usermeta') " +
+                    "; ";
+
+            var command = new MySqlCommand(sql, connection.GetMySqlConnection())
+            {
+                CommandTimeout = 3600
+            };
+
+            _dbTableSchema = new List<string>();
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    _dbTableSchema.Add(reader.GetString("tableSchemaName"));
+                }
+            }
+        }
+
+        public IEnumerable<string> GetSchema(IConnection connection)
+        {
+            var sql = $"SELECT distinct TABLE_SCHEMA FROM information_schema.tables " +
                     "where(table_name like 'wp%posts' or " +
                     "table_name like 'wp%postmeta' or " +
                     "table_name like 'wp%comments' or " +
@@ -66,21 +92,15 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 CommandTimeout = 3600
             };
 
-            _dbTableSchema = new List<TableSchema>();
+            List<string> schemas = new List<string>();
             using (var reader = command.ExecuteReader())
             {
                 while (reader.Read())
                 {
-                    TableSchema tableSchema = new TableSchema()
-                    {
-                        Schema = reader.GetString("TABLE_SCHEMA"),
-                        Name = reader.GetString("table_name")
-                    };
-                    tableSchema.SchemaAndName = tableSchema.Schema + "." + tableSchema.Name;
-
-                    _dbTableSchema.Add(tableSchema);
+                    schemas.Add(reader.GetString("TABLE_SCHEMA"));
                 }
             }
+            return schemas;
         }
 
         public void StartSshTunnel(string host, string username, string password)
@@ -159,7 +179,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                     var escapedExcerpt = MySqlHelper.EscapeString(content.Excerpt);
                     var escapedContentFiltered = MySqlHelper.EscapeString(content.ContentFiltered);
                     var escapedContent = MySqlHelper.EscapeString(content.Content);
-                    var sqlStatement = $"UPDATE {PostsTable} SET guid = '{escapedGuid}', content = '{escapedContent}', ContentFiltered = '{escapedContentFiltered}', Excerpt = '{escapedExcerpt}' WHERE ID = {content.Id};";
+                    var sqlStatement = $"UPDATE {content.SchemaTable} SET guid = '{escapedGuid}', content = '{escapedContent}', ContentFiltered = '{escapedContentFiltered}', Excerpt = '{escapedExcerpt}' WHERE ID = {content.Id};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -177,14 +197,6 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
             }
         }
 
-        public IEnumerable<Post> GetPosts()
-        {
-            using (var connection = CreateConnection())
-            {
-                return GetPosts(connection);
-            }
-        }
-
         public IEnumerable<Post> GetPosts(IConnection connection)
         {
             var sql = new StringBuilder();
@@ -198,6 +210,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     posts.Add(new Post
                     {
+                        SchemaTable = PostsTable,
                         Id = reader.GetUInt64("ID"),
                         Content = reader.GetString("post_content"),
                         Guid = reader.GetString("guid"),
@@ -224,7 +237,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 var sql = new StringBuilder();
                 foreach (var meta in toInsert)
                 {
-                    var sqlStatement = $"UPDATE {PostMetaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE meta_id = {meta.MetaId};";
+                    var sqlStatement = $"UPDATE {meta.SchemaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE meta_id = {meta.MetaId};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -261,6 +274,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     var meta = new Meta
                     {
+                        SchemaTable = PostMetaTable,
                         MetaId = reader.GetUInt64("meta_id"),
                         MetaValue = reader.GetString("meta_value")
                     };
@@ -296,6 +310,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     comments.Add(new Comment
                     {
+                        SchemaTable = CommentsTable,
                         Id = reader.GetUInt64("comment_ID"),
                         AuthorUrl = reader.GetString("comment_author_url"),
                         Content = reader.GetString("comment_content")
@@ -343,7 +358,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     var escapedAuthorUrl = MySqlHelper.EscapeString(content.AuthorUrl);
                     var escapedContent = MySqlHelper.EscapeString(content.Content);
-                    var sqlStatement = $"UPDATE {CommentsTable} SET comment_author_url = '{escapedAuthorUrl}', comment_content = '{escapedContent}' WHERE comment_ID = {content.Id};";
+                    var sqlStatement = $"UPDATE {content.SchemaTable} SET comment_author_url = '{escapedAuthorUrl}', comment_content = '{escapedContent}' WHERE comment_ID = {content.Id};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -375,7 +390,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 var sql = new StringBuilder();
                 foreach (var meta in toInsert)
                 {
-                    var sqlStatement = $"UPDATE {CommentMetaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE meta_id = {meta.MetaId};";
+                    var sqlStatement = $"UPDATE {meta.SchemaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE meta_id = {meta.MetaId};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -412,6 +427,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     var meta = new Meta
                     {
+                        SchemaTable = CommentMetaTable,
                         MetaId = reader.GetUInt64("meta_id"),
                         MetaValue = reader.GetString("meta_value")
                     };
@@ -452,6 +468,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     users.Add(new User()
                     {
+                        SchemaTable = UsersTable,
                         Id = reader.GetUInt64( "ID" ),
                         Url = reader.GetString("user_url")
                     });
@@ -498,7 +515,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 foreach (var content in toUpdate)
                 {
                     var escapedUrl = MySqlHelper.EscapeString(content.Url);
-                    var sqlStatement = $"UPDATE {UsersTable} SET user_url = '{escapedUrl}' WHERE ID = {content.Id};";
+                    var sqlStatement = $"UPDATE {content.SchemaTable} SET user_url = '{escapedUrl}' WHERE ID = {content.Id};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -530,7 +547,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 var sql = new StringBuilder();
                 foreach (var meta in toInsert)
                 {
-                    var sqlStatement = $"UPDATE {UserMetaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE umeta_id = {meta.MetaId};";
+                    var sqlStatement = $"UPDATE {meta.SchemaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE umeta_id = {meta.MetaId};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -567,6 +584,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 {
                     var meta = new Meta
                     {
+                        SchemaTable = UserMetaTable,
                         MetaId = reader.GetUInt64("umeta_id"),
                         MetaValue = reader.GetString("meta_value")
                     };

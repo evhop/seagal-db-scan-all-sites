@@ -7,6 +7,8 @@ using Seagal_TransformHttpContentToHttps.Core;
 using Seagal_TransformHttpContentToHttps.View;
 using Seagal_TransformHttpContentToHttps.WPClient.Model;
 using Seagal_TransformHttpContentToHttps.WPClient;
+using Seagal_TransformHttpContentToHttps.Analys;
+using System.Collections.Generic;
 
 namespace Seagal_TransformHttpContentToHttps
 {
@@ -24,6 +26,8 @@ namespace Seagal_TransformHttpContentToHttps
         static void Main(string[] args)
         {
             SetupDependencyInjection();
+            AnalysRepository.Initialize(ServiceLocator.ServiceProvider);
+
             ExecuteCommand();
         }
 
@@ -76,13 +80,21 @@ namespace Seagal_TransformHttpContentToHttps
         }
         public static void Execute()
         {
+            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+            var analys = "img-src";
+            var instance = analysRepository.GetAnalys(analys);
+
             try
             {
                 //Kör för varje databas
                 foreach (var db in Context.Settings.Db)
                 {
                     Context.Settings.DestinationDb = db;
-                    GetSchema();
+                    foreach(var schema in GetSchema())
+                    {
+                        Context.Settings.DestinationDb.Schema = schema;
+                        instance.Execute(Context);
+                    }
                 }
 
                 Console.WriteLine("done - the blogg are imported");
@@ -93,15 +105,15 @@ namespace Seagal_TransformHttpContentToHttps
             }
         }
 
-        private static void GetSchema()
+        private static IEnumerable<string> GetSchema()
         {
             var clientFactory = Context.ServiceProvider.GetService<IWPClientFactory>();
 
-            using (var client = clientFactory.CreateClient(Context.Settings.DestinationBuildConnectionString(), new StandardTableNameGenerator(Context.Settings.TablePrefix)))
+            using (var client = clientFactory.CreateClient(Context.Settings.DestinationBuildConnectionString()))
             {
                 using (var connection = client.CreateConnection())
                 {
-                    client.GetTableSchema(connection);
+                    return client.GetSchema(connection);
                 }
             }
         }
