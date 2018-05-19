@@ -175,11 +175,10 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 var skip = 0;
                 foreach (var content in toUpdate)
                 {
-                    var escapedGuid = MySqlHelper.EscapeString(content.Guid);
                     var escapedExcerpt = MySqlHelper.EscapeString(content.Excerpt);
                     var escapedContentFiltered = MySqlHelper.EscapeString(content.ContentFiltered);
                     var escapedContent = MySqlHelper.EscapeString(content.Content);
-                    var sqlStatement = $"UPDATE {content.SchemaTable} SET guid = '{escapedGuid}', content = '{escapedContent}', ContentFiltered = '{escapedContentFiltered}', Excerpt = '{escapedExcerpt}' WHERE ID = {content.Id};";
+                    var sqlStatement = $"UPDATE {content.SchemaTable} SET content = '{escapedContent}', ContentFiltered = '{escapedContentFiltered}', Excerpt = '{escapedExcerpt}' WHERE ID = {content.Id};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -203,7 +202,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
             foreach (var postsTable in PostsTable)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, post_content, guid, post_excerpt, post_content_filtered FROM {postsTable} where (post_content like '%src=\"http://%' or post_excerpt like '%src=\"http://%' or post_content_filtered like '%src=\"http://%');");// or guid like '%http://%');");
+                sql.Append($"SELECT ID, post_content, post_excerpt, post_content_filtered FROM {postsTable} where (post_content like '%src=\"http://%' or post_excerpt like '%src=\"http://%' or post_content_filtered like '%src=\"http://%');");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
                 using (var reader = command.ExecuteReader())
@@ -215,7 +214,6 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                             SchemaTable = postsTable,
                             Id = reader.GetUInt64("ID"),
                             Content = reader.GetString("post_content"),
-                            Guid = reader.GetString("guid"),
                             Excerpt = reader.GetString("post_excerpt"),
                             ContentFiltered = reader.GetString("post_content_filtered")
                         });

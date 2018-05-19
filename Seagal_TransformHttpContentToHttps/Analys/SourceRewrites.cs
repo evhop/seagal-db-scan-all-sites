@@ -125,8 +125,7 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                 GetLink(post.Id, post.SchemaTable, post.Content);
                 GetLink(post.Id, post.SchemaTable, post.ContentFiltered);
                 GetLink(post.Id, post.SchemaTable, post.Excerpt);
-                //TODO ska den här göras
-                //GetLink(post.Id, post.SchemaTable, post.Guid);
+                //Guid ska inte hämtas då det bara är källor som hämtar in content som behöver skrivas om
             }
         }
 
