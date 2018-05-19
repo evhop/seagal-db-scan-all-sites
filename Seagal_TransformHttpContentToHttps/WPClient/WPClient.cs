@@ -23,12 +23,12 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         #region Properties
 
-        private string PostsTable => _dbTableSchema.Find(t => t.Contains("posts"));
-        private string PostMetaTable => _dbTableSchema.Find(t => t.Contains("postmeta")).ToString();
-        private string CommentMetaTable => _dbTableSchema.Find(t => t.Contains("commentmeta")).ToString();
-        private string CommentsTable => _dbTableSchema.Find(t => t.Contains("comments")).ToString();
-        private string UsersTable => _dbTableSchema.Find(t => t.Contains("users")).ToString();
-        private string UserMetaTable => _dbTableSchema.Find(t => t.Contains("usermeta")).ToString();
+        private List<string> PostsTable => _dbTableSchema.FindAll(t => t.Contains("posts"));
+        private List<string> PostMetaTable => _dbTableSchema.FindAll(t => t.Contains("postmeta"));
+        private List<string> CommentMetaTable => _dbTableSchema.FindAll(t => t.Contains("commentmeta"));
+        private List<string> CommentsTable => _dbTableSchema.FindAll(t => t.Contains("comments"));
+        private List<string> UsersTable => _dbTableSchema.FindAll(t => t.Contains("users"));
+        private List<string> UserMetaTable => _dbTableSchema.FindAll(t => t.Contains("usermeta"));
 
         public int MaxAllowedPacket { get; }
 
@@ -50,7 +50,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
         #region Methods
         public void GetTableSchema(IConnection connection, string schema)
         {
-            string databaseSchema = schema + '.';
+            string databaseSchema = "`" + schema + "`.";
             var sql = $"SELECT distinct concat('{databaseSchema}',table_name) as tableSchemaName FROM information_schema.tables " +
                 $"WHERE TABLE_SCHEMA = '{schema}'" +
                  "and (table_name like 'wp%posts' or " +
@@ -199,28 +199,30 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         public IEnumerable<Post> GetPosts(IConnection connection)
         {
-            var sql = new StringBuilder();
-            sql.Append($"SELECT ID, post_content, guid, post_excerpt, post_content_filtered FROM {PostsTable};");
-
-            var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
-            using (var reader = command.ExecuteReader())
+            var posts = new List<Post>();
+            foreach (var postsTable in PostsTable)
             {
-                var posts = new List<Post>();
-                while (reader.Read())
-                {
-                    posts.Add(new Post
-                    {
-                        SchemaTable = PostsTable,
-                        Id = reader.GetUInt64("ID"),
-                        Content = reader.GetString("post_content"),
-                        Guid = reader.GetString("guid"),
-                        Excerpt = reader.GetString("post_excerpt"),
-                        ContentFiltered = reader.GetString("post_content_filtered")
-                    });
-                }
+                var sql = new StringBuilder();
+                sql.Append($"SELECT ID, post_content, guid, post_excerpt, post_content_filtered FROM {postsTable} where (post_content like '%src=\"http://%' or post_excerpt like '%src=\"http://%' or post_content_filtered like '%src=\"http://%');");// or guid like '%http://%');");
 
-                return posts;
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        posts.Add(new Post
+                        {
+                            SchemaTable = postsTable,
+                            Id = reader.GetUInt64("ID"),
+                            Content = reader.GetString("post_content"),
+                            Guid = reader.GetString("guid"),
+                            Excerpt = reader.GetString("post_excerpt"),
+                            ContentFiltered = reader.GetString("post_content_filtered")
+                        });
+                    }
+                }
             }
+            return posts;
         }
 
         #endregion
@@ -260,30 +262,33 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
         public IEnumerable<Meta> GetPostMeta(IConnection connection)
         {
             var sql = new StringBuilder();
-            sql.AppendLine($"SELECT meta_id, meta_value FROM {PostMetaTable} WHERE meta_value like '%http://%'");
 
-            var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
+            var metas = new List<Meta>();
+            foreach (var postMetaTable in PostsTable)
             {
-                CommandTimeout = 3600
-            };
+                sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value like '%http://%';");
 
-            using (var reader = command.ExecuteReader())
-            {
-                var metas = new List<Meta>();
-                while (reader.Read())
+                var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
                 {
-                    var meta = new Meta
+                    CommandTimeout = 3600
+                };
+
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
                     {
-                        SchemaTable = PostMetaTable,
-                        MetaId = reader.GetUInt64("meta_id"),
-                        MetaValue = reader.GetString("meta_value")
-                    };
+                        var meta = new Meta
+                        {
+                            SchemaTable = postMetaTable,
+                            MetaId = reader.GetUInt64("meta_id"),
+                            MetaValue = reader.GetString("meta_value")
+                        };
 
-                    metas.Add(meta);
+                        metas.Add(meta);
+                    }
                 }
-
-                return metas;
             }
+            return metas;
         }
 
         #endregion
@@ -300,25 +305,27 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         public IEnumerable<Comment> GetComments(IConnection connection)
         {
-            var sql = $"SELECT comment_ID, comment_author_url, comment_content FROM {CommentsTable}";
-
-            var command = new MySqlCommand(sql, connection.GetMySqlConnection());
-            using (var reader = command.ExecuteReader())
+            var comments = new List<Comment>();
+            foreach (var commentsTable in CommentsTable)
             {
-                var comments = new List<Comment>();
-                while (reader.Read())
+                var sql = $"SELECT comment_ID, comment_author_url, comment_content FROM {commentsTable} where (comment_author_url like '%http://%' or comment_content like '%http://%'); ";
+                var command = new MySqlCommand(sql, connection.GetMySqlConnection());
+                using (var reader = command.ExecuteReader())
                 {
-                    comments.Add(new Comment
+                    while (reader.Read())
                     {
-                        SchemaTable = CommentsTable,
-                        Id = reader.GetUInt64("comment_ID"),
-                        AuthorUrl = reader.GetString("comment_author_url"),
-                        Content = reader.GetString("comment_content")
-                    });
+                        comments.Add(new Comment
+                        {
+                            SchemaTable = commentsTable,
+                            Id = reader.GetUInt64("comment_ID"),
+                            AuthorUrl = reader.GetString("comment_author_url"),
+                            Content = reader.GetString("comment_content")
+                        });
+                    }
                 }
-
-                return comments;
             }
+
+            return comments;
         }
         public void UpdateComments(IEnumerable<Comment> comments)
         {
@@ -412,31 +419,34 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         public IEnumerable<Meta> GetCommentMeta(IConnection connection)
         {
-            var sql = new StringBuilder();
-            sql.AppendLine($"SELECT meta_id, meta_value FROM {CommentMetaTable} WHERE meta_value like '%http://%'");
+            var metas = new List<Meta>();
 
-            var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
+            foreach (var commentMetaTable in CommentMetaTable)
             {
-                CommandTimeout = 3600
-            };
+                var sql = new StringBuilder();
+                sql.AppendLine($"SELECT meta_id, meta_value FROM {commentMetaTable} WHERE meta_value like '%http://%';");
 
-            using (var reader = command.ExecuteReader())
-            {
-                var metas = new List<Meta>();
-                while (reader.Read())
+                var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
                 {
-                    var meta = new Meta
+                    CommandTimeout = 3600
+                };
+
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
                     {
-                        SchemaTable = CommentMetaTable,
-                        MetaId = reader.GetUInt64("meta_id"),
-                        MetaValue = reader.GetString("meta_value")
-                    };
+                        var meta = new Meta
+                        {
+                            SchemaTable = commentMetaTable,
+                            MetaId = reader.GetUInt64("meta_id"),
+                            MetaValue = reader.GetString("meta_value")
+                        };
 
-                    metas.Add(meta);
+                        metas.Add(meta);
+                    }
                 }
-
-                return metas;
             }
+            return metas;
         }
 
         #endregion
@@ -454,28 +464,31 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         public IEnumerable<User> GetUsers( IConnection connection )
         {
-            var sql = $"SELECT u.ID, u.user_url FROM {UsersTable} AS u;";
-
-            var command = new MySqlCommand( sql, connection.GetMySqlConnection() )
+            var users = new List<User>();
+            foreach ( var usersTable in UsersTable)
             {
-                CommandTimeout = 3600
-            };
+                var sql = $"SELECT u.ID, u.user_url FROM {usersTable} AS u where u.user_url like '%http://%';";
 
-            using( var reader = command.ExecuteReader() )
-            {
-                var users = new List<User>();
-                while( reader.Read() )
+                var command = new MySqlCommand(sql, connection.GetMySqlConnection())
                 {
-                    users.Add(new User()
-                    {
-                        SchemaTable = UsersTable,
-                        Id = reader.GetUInt64( "ID" ),
-                        Url = reader.GetString("user_url")
-                    });
-                }
+                    CommandTimeout = 3600
+                };
 
-                return users;
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        users.Add(new User()
+                        {
+                            SchemaTable = usersTable,
+                            Id = reader.GetUInt64("ID"),
+                            Url = reader.GetString("user_url")
+                        });
+                    }
+
+                }
             }
+            return users;
         }
 
         public void UpdateUsers(IEnumerable<User> users)
@@ -569,31 +582,33 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
 
         public IEnumerable<Meta> GetUserMeta(IConnection connection)
         {
-            var sql = new StringBuilder();
-            sql.AppendLine($"SELECT umeta_id, meta_value FROM {UserMetaTable} WHERE meta_value like '%http://%'");
-
-            var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
+            var metas = new List<Meta>();
+            foreach (var userMetaTable in UserMetaTable)
             {
-                CommandTimeout = 3600
-            };
+                var sql = new StringBuilder();
+                sql.AppendLine($"SELECT umeta_id, meta_value FROM {userMetaTable} WHERE meta_value like '%http://%';");
 
-            using (var reader = command.ExecuteReader())
-            {
-                var metas = new List<Meta>();
-                while (reader.Read())
+                var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
                 {
-                    var meta = new Meta
+                    CommandTimeout = 3600
+                };
+
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
                     {
-                        SchemaTable = UserMetaTable,
-                        MetaId = reader.GetUInt64("umeta_id"),
-                        MetaValue = reader.GetString("meta_value")
-                    };
+                        var meta = new Meta
+                        {
+                            SchemaTable = userMetaTable,
+                            MetaId = reader.GetUInt64("umeta_id"),
+                            MetaValue = reader.GetString("meta_value")
+                        };
 
-                    metas.Add(meta);
+                        metas.Add(meta);
+                    }
                 }
-
-                return metas;
             }
+            return metas;
         }
 
         #endregion

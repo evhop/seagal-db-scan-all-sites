@@ -29,6 +29,7 @@ namespace Seagal_TransformHttpContentToHttps
             AnalysRepository.Initialize(ServiceLocator.ServiceProvider);
 
             ExecuteCommand();
+            return;
         }
 
         private static void ExecuteCommand()
@@ -90,7 +91,8 @@ namespace Seagal_TransformHttpContentToHttps
                 foreach (var db in Context.Settings.Db)
                 {
                     Context.Settings.DestinationDb = db;
-                    foreach(var schema in GetSchema())
+                    IEnumerable<string> schemas = GetSchema();
+                    foreach (var schema in schemas)
                     {
                         Context.Settings.DestinationDb.Schema = schema;
                         instance.Execute(Context);

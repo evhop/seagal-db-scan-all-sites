@@ -18,7 +18,7 @@ namespace Seagal_TransformHttpContentToHttps.Analys
     {
         public string Name => "img-src";
         private static Regex ImageRegex = new Regex( @"<img>*", RegexOptions.Compiled );
-        private static Regex UrlHttpRegex = new Regex( $"^((?:http(?:s)?:)?//[^/]+)?(/(?!/).*)$", RegexOptions.Compiled );
+        private static Regex UrlHttpRegex = new Regex($"src=[\"'](.+?)[\"'].+?", RegexOptions.Compiled );
 
         private List<HttpLink> imageAnalysList = new List<HttpLink>();
         private Serializer _serializer = new Serializer();
@@ -99,7 +99,7 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                         GetHttpForPost(posts);
                     }
 
-                    //Hämta bildlänkar för Postmeta, url och thumbnail
+                    //TODO Hämta länkar för Postmeta, commentmeta, comments, users, usermeta
                     //var metas = client.GetPostMeta(connection);
                     //if (metas.Any())
                     //{
@@ -109,8 +109,9 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                     //Avsluta transactionen
                     transaction.Commit();
                 }
-                catch
+                catch (Exception e)
                 {
+                    Console.Write(e.Message);
                     transaction.Rollback();
                     throw;
                 }
@@ -124,7 +125,8 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                 GetLink(post.Id, post.SchemaTable, post.Content);
                 GetLink(post.Id, post.SchemaTable, post.ContentFiltered);
                 GetLink(post.Id, post.SchemaTable, post.Excerpt);
-                GetLink(post.Id, post.SchemaTable, post.Guid);
+                //TODO ska den här göras
+                //GetLink(post.Id, post.SchemaTable, post.Guid);
             }
         }
 
@@ -138,7 +140,7 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                     continue;
                 }
 
-                var src = match.Groups[0].Value;
+                var src = match.Groups[1].Value;
                 var srcHttps = src.Replace("http", "https");
 
                 var httpLink = new HttpLink
@@ -148,24 +150,28 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                     HttpSource = src
                 };
 
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(srcHttps);
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-                if (response.StatusCode == HttpStatusCode.OK)
+                try
                 {
+                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(srcHttps);
+                    request.Method = "HEAD";
+                    request.Timeout = 2000;
+                    HttpWebResponse response = (HttpWebResponse)request.GetResponse();
                     httpLink.HttpSource = srcHttps;
                     //finns som https
                     httpLink.Succeded = true;
                 }
-                else
+                catch (Exception e)
                 {
-                    request = (HttpWebRequest)WebRequest.Create(src);
-                    response = (HttpWebResponse)request.GetResponse();
-                    if (response.StatusCode == HttpStatusCode.OK)
+                    try
                     {
+                        var request = (HttpWebRequest)WebRequest.Create(src);
+                        request.Method = "HEAD";
+                        request.Timeout = 2000;
+                        var response = (HttpWebResponse)request.GetResponse();
                         //finns som http men inte som https
                         httpLink.Succeded = false;
                     }
-                    else
+                    catch (Exception ex)
                     {
                         //finns inte som http
                         httpLink.Succeded = null;
