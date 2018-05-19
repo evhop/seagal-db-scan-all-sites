@@ -11,56 +11,57 @@ using Seagal_TransformHttpContentToHttps.Core;
 using Seagal_TransformHttpContentToHttps.Model;
 using Seagal_TransformHttpContentToHttps.WPClient;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace Seagal_TransformHttpContentToHttps.Analys
 {
     public class SourceRewrites : ISourceRewrites
     {
         public string Name => "img-src";
-        private static Regex ImageRegex = new Regex( @"<img>*", RegexOptions.Compiled );
-        private static Regex UrlHttpRegex = new Regex($"src=[\"'](.+?)[\"'].+?", RegexOptions.Compiled );
+        private static Regex ImageRegex = new Regex(@"<img>*", RegexOptions.Compiled);
+        private static Regex UrlHttpRegex = new Regex($"src=[\"'](.+?)[\"'].+?", RegexOptions.Compiled);
 
-        private List<HttpLink> imageAnalysList = new List<HttpLink>();
+        private List<HttpLink> _imageAnalysList = new List<HttpLink>();
         private Serializer _serializer = new Serializer();
 
-        public SourceRewrites( ILoggerFactory loggerFactory )
-            : this( loggerFactory.CreateLogger<SourceRewrites>() )
+        public SourceRewrites(ILoggerFactory loggerFactory)
+            : this(loggerFactory.CreateLogger<SourceRewrites>())
         {
         }
 
-        public SourceRewrites( ILogger logger ) => Logger = logger ?? throw new ArgumentNullException( nameof( logger ) );
+        public SourceRewrites(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         private ILogger Logger { get; }
 
-        public void Execute( Context context )
+        public void Execute(Context context)
         {
             var clientFactory = context.ServiceProvider.GetService<IWPClientFactory>();
             var settings = context.Settings;
 
-            var time = DateTime.Now.ToString( "yyyyMMddHHmmss" );
-            var pathFail = @"C:\Users\evhop\Dokument\dumps\Https.txt".Replace( ".txt", $"_{time}_fail.txt" );
-            var pathSuccess = @"C:\Users\evhop\Dokument\dumps\Https.txt".Replace( ".txt", $"_{time}_success.txt" );
+            var time = DateTime.Now.ToString("yyyyMMddHHmmss");
+            var pathFail = @"C:\Users\evhop\Dokument\dumps\Https.txt".Replace(".txt", $"_{time}_fail.txt");
+            var pathSuccess = @"C:\Users\evhop\Dokument\dumps\Https.txt".Replace(".txt", $"_{time}_success.txt");
 
-            if( File.Exists( pathFail ) )
+            if (File.Exists(pathFail))
             {
-                File.Delete( pathFail );
+                File.Delete(pathFail);
             }
 
-            if( File.Exists( pathSuccess ) )
+            if (File.Exists(pathSuccess))
             {
-                File.Delete( pathSuccess );
+                File.Delete(pathSuccess);
             }
 
-            using( var client = clientFactory.CreateClient( settings.DestinationBuildConnectionString()) )
+            using (var client = clientFactory.CreateClient(settings.DestinationBuildConnectionString()))
             {
-                using( var connection = client.CreateConnection() )
+                using (var connection = client.CreateConnection())
                 {
                     client.GetTableSchema(connection, settings.DestinationDb.Schema);
-                    ExecuteTransaction( context, client, connection);
+                    ExecuteTransaction(context, client, connection);
                 }
             }
             //Skriv ut filen
-            var distinctList = imageAnalysList.Distinct().ToList();
+            var distinctList = _imageAnalysList.Distinct().ToList();
             using (var failStream = File.AppendText(pathFail))
             {
                 using (var successStream = File.AppendText(pathSuccess))
@@ -86,15 +87,17 @@ namespace Seagal_TransformHttpContentToHttps.Analys
             }
         }
 
-        private void ExecuteTransaction( IContext context, IWPClient client, IConnection connection)
+        private void ExecuteTransaction(IContext context, IWPClient client, IConnection connection)
         {
-            using( var transaction = connection.BeginTransaction() )
+            using (var transaction = connection.BeginTransaction())
             {
                 try
                 {
                     //Hämta länkar för Post
                     var posts = client.GetPosts(connection);
-                    if( posts.Any() )
+                    //Avsluta transactionen
+                    transaction.Commit();
+                    if (posts.Any())
                     {
                         GetHttpForPost(posts);
                     }
@@ -106,8 +109,6 @@ namespace Seagal_TransformHttpContentToHttps.Analys
                     //    GetHttpForPostmeta(metas, site);
                     //}
 
-                    //Avsluta transactionen
-                    transaction.Commit();
                 }
                 catch (Exception e)
                 {
@@ -118,79 +119,85 @@ namespace Seagal_TransformHttpContentToHttps.Analys
             }
         }
 
-        private void GetHttpForPost( IEnumerable<Post> posts)
+        private void GetHttpForPost(IEnumerable<Post> posts)
         {
-            foreach( var post in posts )
+            foreach (var post in posts)
             {
-                GetLink(post.Id, post.SchemaTable, post.Content);
-                GetLink(post.Id, post.SchemaTable, post.ContentFiltered);
-                GetLink(post.Id, post.SchemaTable, post.Excerpt);
+                GetLinkAsync(post.Id, post.SchemaTable, post.Content).Wait();
+                GetLinkAsync(post.Id, post.SchemaTable, post.ContentFiltered).Wait();
+                GetLinkAsync(post.Id, post.SchemaTable, post.Excerpt).Wait();
                 //Guid ska inte hämtas då det bara är källor som hämtar in content som behöver skrivas om
             }
         }
 
-        private void GetLink(ulong id, string schemaTable, string content)
+        private async Task GetLinkAsync(ulong id, string schemaTable, string content)
         {
-            var matches = UrlHttpRegex.Matches(content);
-            foreach (Match match in matches)
-            {
-                if (!match.Success)
-                {
-                    continue;
-                }
+            var matches = UrlHttpRegex.Matches(content).ToList();
 
-                var src = match.Groups[1].Value;
-                var srcHttps = src.Replace("http", "https");
+            // Create a query.   
+            IEnumerable<Task<HttpLink>> downloadTasksQuery =
+                from match in matches
+                where match.Success
+                select ProcessURLAsync(match.Groups[1].Value, id, schemaTable);
 
-                var httpLink = new HttpLink
-                {
-                    SchemaTable = schemaTable,
-                    Id = id,
-                    HttpSource = src
-                };
+            // Use ToArray to execute the query and start the download tasks.  
+            Task<HttpLink>[] downloadTasks = downloadTasksQuery.ToArray();
 
-                try
-                {
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(srcHttps);
-                    request.Method = "HEAD";
-                    request.Timeout = 2000;
-                    HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-                    httpLink.HttpSource = srcHttps;
-                    //finns som https
-                    httpLink.Succeded = true;
-                }
-                catch (Exception e)
-                {
-                    try
-                    {
-                        var request = (HttpWebRequest)WebRequest.Create(src);
-                        request.Method = "HEAD";
-                        request.Timeout = 2000;
-                        var response = (HttpWebResponse)request.GetResponse();
-                        //finns som http men inte som https
-                        httpLink.Succeded = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        //finns inte som http
-                        httpLink.Succeded = null;
-                    }
-                }
-
-                imageAnalysList.Add(httpLink);
-            }
+            // Await the completion of all the running tasks.  
+            HttpLink[] httpLinks = await Task.WhenAll(downloadTasks);
+            _imageAnalysList.AddRange(httpLinks.ToList());
         }
 
-        private void GetHttpForPostmeta( IEnumerable<Meta> postMetas, ISite site )
+        private async Task<HttpLink> ProcessURLAsync(string url, ulong id, string schemaTable)
+        {
+            var src = url;
+            var srcHttps = src.Replace("http", "https");
+
+            var httpLink = new HttpLink
+            {
+                SchemaTable = schemaTable,
+                Id = id,
+                HttpSource = src
+            };
+            try
+            {
+                var request = (HttpWebRequest)WebRequest.Create(srcHttps);
+                request.Method = "HEAD";
+                var response = await request.GetResponseAsync();
+                httpLink.HttpSource = srcHttps;
+                //finns som https
+                httpLink.Succeded = true;
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    var request = (HttpWebRequest)WebRequest.Create(src);
+                    request.Method = "HEAD";
+                    var response = await request.GetResponseAsync();
+                    //finns som http men inte som https
+                    httpLink.Succeded = false;
+                }
+                catch (Exception ex)
+                {
+                    //finns inte som http
+                    httpLink.Succeded = null;
+                }
+            }
+            return httpLink;
+        }
+
+        private void GetHttpForPostmeta(IEnumerable<Meta> postMetas, ISite site)
         {
             MetaUrlRewriter metaUrlRewriter = new MetaUrlRewriter(site);
-            foreach ( var postMeta in postMetas )
+            foreach (var postMeta in postMetas)
             {
                 var data = _serializer.Deserialize(postMeta.MetaValue);
                 data = metaUrlRewriter.RewriteUrl(data);
                 postMeta.MetaValue = _serializer.Serialize(data);
                 //TODO lägga till i listan
             }
+
         }
     }
 }
