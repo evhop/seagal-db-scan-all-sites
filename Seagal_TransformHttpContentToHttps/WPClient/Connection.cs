@@ -1,8 +1,8 @@
 ﻿using System;
-using Seagal_TransformHttpContentToHttps.WPClient.Model;
+using Fallback_blogg.WPClient.Model;
 using MySql.Data.MySqlClient;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient
+namespace Fallback_blogg.WPClient
 {
     public class Connection : IConnection
     {

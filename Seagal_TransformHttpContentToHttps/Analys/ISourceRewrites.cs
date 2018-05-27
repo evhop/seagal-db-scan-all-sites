@@ -1,6 +1,6 @@
-﻿using Seagal_TransformHttpContentToHttps.Core;
+﻿using Fallback_blogg.Core;
 
-namespace Seagal_TransformHttpContentToHttps.Analys
+namespace Fallback_blogg.Analys
 {
     public interface ISourceRewrites
     {

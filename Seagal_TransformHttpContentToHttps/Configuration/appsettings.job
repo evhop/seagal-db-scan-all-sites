@@ -2,23 +2,11 @@
   "tablePrefix": "wp",
   "db": [
     /*{
-      "host": "localhost",
-      "port": 3360,
-      "user": "root",
-      "password": "Test1"
-    },*/
-    {
-      "host": "bt-wp-staging-db001.mysql.database.azure.com",
-      "port": 3306,
-      "user": "staging@bt-wp-staging-db001",
-      "password": "r)}o4+BiCOvRS.2E"
-    }/*,
-    {
       "host": "bt-wp-prod-db002.mysql.database.azure.com",
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db002",
       "password": "Px?AYDd@3yB=a9K9"
-    },
+    }, 
     {
       "host": "bt-wp-prod-db003.mysql.database.azure.com",
       "port": 3306,
@@ -30,20 +18,19 @@
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db004",
       "password": "cqdyUsqe59UcK6Hqmfj5LTPK"
-    },
+    } ,
     {
       "host": "bt-wp-prod-db005.mysql.database.azure.com",
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db005",
       "password": "prd23Hd7emGuUWkwNh352DZRkF3BGcxb"
-    },
+    },*/
     {
       "host": "bt-wp-prod-ts001.mysql.database.azure.com",
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-ts001",
       "password": "K3k4VrEkdKg6VmBCUYv8L2GXJtje4E5H"
     }
-    "*/
   ]
 }
 

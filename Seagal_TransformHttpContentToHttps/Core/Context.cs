@@ -1,13 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
-using System.Linq;
-using Seagal_TransformHttpContentToHttps.WPClient.Model;
-using Seagal_TransformHttpContentToHttps.WPClient;
-using Seagal_TransformHttpContentToHttps.Model;
-using Seagal_TransformHttpContentToHttps.View;
+using Fallback_blogg.Model;
+using Fallback_blogg.View;
 
-namespace Seagal_TransformHttpContentToHttps.Core
+namespace Fallback_blogg.Core
 {
     public class Context : IContext
     {

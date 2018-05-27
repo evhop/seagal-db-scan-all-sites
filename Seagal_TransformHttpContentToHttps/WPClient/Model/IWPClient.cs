@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient.Model
+namespace Fallback_blogg.WPClient.Model
 {
-    public interface IWPClient : IDisposable, IPostsRepository, ICommentRepository, IPostMetaRepository, IUserRepository, IUserMetaRepository, ICommentMetaRepository
+    public interface IWPClient : IDisposable, IPostsRepository
     {
         IConnection CreateConnection();
         void GetTableSchema(IConnection connection, string schema);

@@ -1,4 +1,4 @@
-using Seagal_TransformHttpContentToHttps.WPClient.Core;
+using Fallback_blogg.WPClient.Core;
 using MySql.Data.MySqlClient;
 using MySql.Data.Types;
 using System;
@@ -6,10 +6,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
-using Seagal_TransformHttpContentToHttps.WPClient.Model;
-using Seagal_TransformHttpContentToHttps.WPClient.View;
+using Fallback_blogg.WPClient.Model;
+using Fallback_blogg.WPClient.View;
+using System.IO;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient
+namespace Fallback_blogg.WPClient
 {
     public class WPClient : IWPClient
     {
@@ -18,17 +19,11 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
         private SSHTunnel _sshTunnel;
         private string _connectionString = null;
         private List<string> _dbTableSchema;
-
         #endregion
 
         #region Properties
 
         private List<string> PostsTable => _dbTableSchema.FindAll(t => t.Contains("posts"));
-        private List<string> PostMetaTable => _dbTableSchema.FindAll(t => t.Contains("postmeta"));
-        private List<string> CommentMetaTable => _dbTableSchema.FindAll(t => t.Contains("commentmeta"));
-        private List<string> CommentsTable => _dbTableSchema.FindAll(t => t.Contains("comments"));
-        private List<string> UsersTable => _dbTableSchema.FindAll(t => t.Contains("users"));
-        private List<string> UserMetaTable => _dbTableSchema.FindAll(t => t.Contains("usermeta"));
 
         public int MaxAllowedPacket { get; }
 
@@ -53,13 +48,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
             string databaseSchema = "`" + schema + "`.";
             var sql = $"SELECT distinct concat('{databaseSchema}',table_name) as tableSchemaName FROM information_schema.tables " +
                 $"WHERE TABLE_SCHEMA = '{schema}'" +
-                 "and (table_name like 'wp%posts' or " +
-                    "table_name like 'wp%postmeta' or " +
-                    "table_name like 'wp%comments' or " +
-                    "table_name like 'wp%commentmeta' or " +
-                    "table_name like 'wp%users' or " +
-                    "table_name like 'wp%usermeta') " +
-                    "; ";
+                 "and table_name like 'wp%posts' ; ";
 
             var command = new MySqlCommand(sql, connection.GetMySqlConnection())
             {
@@ -79,13 +68,7 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
         public IEnumerable<string> GetSchema(IConnection connection)
         {
             var sql = $"SELECT distinct TABLE_SCHEMA FROM information_schema.tables " +
-                    "where(table_name like 'wp%posts' or " +
-                    "table_name like 'wp%postmeta' or " +
-                    "table_name like 'wp%comments' or " +
-                    "table_name like 'wp%commentmeta' or " +
-                    "table_name like 'wp%users' or " +
-                    "table_name like 'wp%usermeta') " +
-                    "; ";
+                    "where table_name like 'wp%posts'; ";
 
             var command = new MySqlCommand(sql, connection.GetMySqlConnection())
             {
@@ -175,10 +158,8 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                 var skip = 0;
                 foreach (var content in toUpdate)
                 {
-                    var escapedExcerpt = MySqlHelper.EscapeString(content.Excerpt);
-                    var escapedContentFiltered = MySqlHelper.EscapeString(content.ContentFiltered);
                     var escapedContent = MySqlHelper.EscapeString(content.Content);
-                    var sqlStatement = $"UPDATE {content.SchemaTable} SET content = '{escapedContent}', ContentFiltered = '{escapedContentFiltered}', Excerpt = '{escapedExcerpt}' WHERE ID = {content.Id};";
+                    var sqlStatement = $"UPDATE {content.SchemaTable} SET post_content = '{escapedContent}' WHERE ID = {content.Id};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -196,13 +177,52 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
             }
         }
 
+        public void CreateSqlUpdatePostsfile(IConnection connection, IEnumerable<Post> posts)
+        {
+            var sqlNew = new StringBuilder();
+            var sqlOld = new StringBuilder();
+
+            var time = DateTime.Now.ToString("yyyyMMddHHmmss");
+            var schemaIndex = posts.FirstOrDefault().SchemaTable.IndexOf('.');
+            var schema = posts.FirstOrDefault().SchemaTable.Substring(0, schemaIndex - 1).Trim('\'').Trim('`');
+            var pathNew = $@"C:\Users\evhop\source\repos\fallback_Blogg\{schema}_new_{time}.txt";
+            var pathOld = $@"C:\Users\evhop\source\repos\fallback_Blogg\{schema}_old_{time}.txt";
+
+            if (File.Exists(pathNew))
+            {
+                File.Delete(pathNew);
+            }
+
+            if (File.Exists(pathOld))
+            {
+                File.Delete(pathOld);
+            }
+
+            using (var newStream = File.AppendText(pathNew))
+            {
+                using (var oldStream = File.AppendText(pathOld))
+                {
+
+                    foreach (var content in posts)
+                    {
+                        var escapedContent = MySqlHelper.EscapeString(content.Content);
+                        var sqlStatement = $"UPDATE {content.SchemaTable} SET post_content = '{escapedContent}' WHERE ID = {content.Id};";
+                        newStream.WriteLine(sqlStatement);
+                        escapedContent = MySqlHelper.EscapeString(content.OldContent);
+                        sqlStatement = $"UPDATE {content.SchemaTable} SET post_content = '{escapedContent}' WHERE ID = {content.Id};";
+                        oldStream.WriteLine(sqlStatement);
+                    }
+                }
+            }
+        }
+
         public IEnumerable<Post> GetPosts(IConnection connection)
         {
             var posts = new List<Post>();
             foreach (var postsTable in PostsTable)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, post_content, post_excerpt, post_content_filtered FROM {postsTable} where (post_content like '%src=\"http://%' or post_excerpt like '%src=\"http://%' or post_content_filtered like '%src=\"http://%');");
+                sql.Append($"SELECT ID, post_content FROM {postsTable} where post_content REGEXP ' (href|src)=http';");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
                 using (var reader = command.ExecuteReader())
@@ -214,399 +234,12 @@ namespace Seagal_TransformHttpContentToHttps.WPClient
                             SchemaTable = postsTable,
                             Id = reader.GetUInt64("ID"),
                             Content = reader.GetString("post_content"),
-                            Excerpt = reader.GetString("post_excerpt"),
-                            ContentFiltered = reader.GetString("post_content_filtered")
+                            OldContent = reader.GetString("post_content")
                         });
                     }
                 }
             }
             return posts;
-        }
-
-        #endregion
-
-        #region IPostMetaRepository
-
-        public void UpdatePostMetas(IConnection connection, IEnumerable<Meta> postMetas)
-        {
-            var remaining = postMetas;
-            while (remaining.Any())
-            {
-                var toInsert = remaining;
-                var skip = 0;
-                var sql = new StringBuilder();
-                foreach (var meta in toInsert)
-                {
-                    var sqlStatement = $"UPDATE {meta.SchemaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE meta_id = {meta.MetaId};";
-
-                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
-                    {
-                        break;
-                    }
-
-                    skip++;
-                    sql.AppendLine(sqlStatement);
-                }
-
-                using (var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection()))
-                {
-                    command.ExecuteNonQuery();
-                }
-
-                remaining = remaining.Skip(skip);
-            }
-        }
-
-        public IEnumerable<Meta> GetPostMeta(IConnection connection)
-        {
-            var sql = new StringBuilder();
-
-            var metas = new List<Meta>();
-            foreach (var postMetaTable in PostsTable)
-            {
-                sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value like '%http://%';");
-
-                var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
-                {
-                    CommandTimeout = 3600
-                };
-
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var meta = new Meta
-                        {
-                            SchemaTable = postMetaTable,
-                            MetaId = reader.GetUInt64("meta_id"),
-                            MetaValue = reader.GetString("meta_value")
-                        };
-
-                        metas.Add(meta);
-                    }
-                }
-            }
-            return metas;
-        }
-
-        #endregion
-
-        #region ICommentRepository
-
-        public IEnumerable<Comment> GetComments()
-        {
-            using (var connection = CreateConnection())
-            {
-                return GetComments(connection);
-            }
-        }
-
-        public IEnumerable<Comment> GetComments(IConnection connection)
-        {
-            var comments = new List<Comment>();
-            foreach (var commentsTable in CommentsTable)
-            {
-                var sql = $"SELECT comment_ID, comment_author_url, comment_content FROM {commentsTable} where (comment_author_url like '%http://%' or comment_content like '%http://%'); ";
-                var command = new MySqlCommand(sql, connection.GetMySqlConnection());
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        comments.Add(new Comment
-                        {
-                            SchemaTable = commentsTable,
-                            Id = reader.GetUInt64("comment_ID"),
-                            AuthorUrl = reader.GetString("comment_author_url"),
-                            Content = reader.GetString("comment_content")
-                        });
-                    }
-                }
-            }
-
-            return comments;
-        }
-        public void UpdateComments(IEnumerable<Comment> comments)
-        {
-            if (!comments.Any())
-            {
-                return;
-            }
-
-            using (var connection = CreateConnection())
-            {
-                var transaction = connection.BeginTransaction();
-
-                try
-                {
-                    UpdateComments(connection, comments);
-                    transaction.Commit();
-                }
-                catch
-                {
-                    transaction.Rollback();
-                }
-            }
-        }
-
-        public void UpdateComments(IConnection connection, IEnumerable<Comment> comments)
-        {
-            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
-
-            var remaining = comments;
-            while (remaining.Any())
-            {
-                var sql = new StringBuilder();
-
-                var toUpdate = remaining;
-                var skip = 0;
-                foreach (var content in toUpdate)
-                {
-                    var escapedAuthorUrl = MySqlHelper.EscapeString(content.AuthorUrl);
-                    var escapedContent = MySqlHelper.EscapeString(content.Content);
-                    var sqlStatement = $"UPDATE {content.SchemaTable} SET comment_author_url = '{escapedAuthorUrl}', comment_content = '{escapedContent}' WHERE comment_ID = {content.Id};";
-
-                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
-                    {
-                        break;
-                    }
-
-                    skip++;
-                    sql.Append(sqlStatement);
-                }
-
-                command.CommandText = sql.ToString();
-                command.ExecuteNonQuery();
-
-                remaining = remaining.Skip(skip);
-            }
-        }
-
-        #endregion
-
-        #region ICommentMetaRepository
-
-        public void UpdateCommentMetas(IConnection connection, IEnumerable<Meta> commentMetas)
-        {
-            var remaining = commentMetas;
-            while (remaining.Any())
-            {
-                var toInsert = remaining;
-                var skip = 0;
-                var sql = new StringBuilder();
-                foreach (var meta in toInsert)
-                {
-                    var sqlStatement = $"UPDATE {meta.SchemaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE meta_id = {meta.MetaId};";
-
-                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
-                    {
-                        break;
-                    }
-
-                    skip++;
-                    sql.AppendLine(sqlStatement);
-                }
-
-                using (var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection()))
-                {
-                    command.ExecuteNonQuery();
-                }
-
-                remaining = remaining.Skip(skip);
-            }
-        }
-
-        public IEnumerable<Meta> GetCommentMeta(IConnection connection)
-        {
-            var metas = new List<Meta>();
-
-            foreach (var commentMetaTable in CommentMetaTable)
-            {
-                var sql = new StringBuilder();
-                sql.AppendLine($"SELECT meta_id, meta_value FROM {commentMetaTable} WHERE meta_value like '%http://%';");
-
-                var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
-                {
-                    CommandTimeout = 3600
-                };
-
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var meta = new Meta
-                        {
-                            SchemaTable = commentMetaTable,
-                            MetaId = reader.GetUInt64("meta_id"),
-                            MetaValue = reader.GetString("meta_value")
-                        };
-
-                        metas.Add(meta);
-                    }
-                }
-            }
-            return metas;
-        }
-
-        #endregion
-
-
-        #region IUserRepository
-
-        public IEnumerable<User> GetUsers()
-        {
-            using( var connection = CreateConnection() )
-            {
-                return GetUsers( connection );
-            }
-        }
-
-        public IEnumerable<User> GetUsers( IConnection connection )
-        {
-            var users = new List<User>();
-            foreach ( var usersTable in UsersTable)
-            {
-                var sql = $"SELECT u.ID, u.user_url FROM {usersTable} AS u where u.user_url like '%http://%';";
-
-                var command = new MySqlCommand(sql, connection.GetMySqlConnection())
-                {
-                    CommandTimeout = 3600
-                };
-
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        users.Add(new User()
-                        {
-                            SchemaTable = usersTable,
-                            Id = reader.GetUInt64("ID"),
-                            Url = reader.GetString("user_url")
-                        });
-                    }
-
-                }
-            }
-            return users;
-        }
-
-        public void UpdateUsers(IEnumerable<User> users)
-        {
-            if (!users.Any())
-            {
-                return;
-            }
-
-            using (var connection = CreateConnection())
-            {
-                var transaction = connection.BeginTransaction();
-
-                try
-                {
-                    UpdateUsers(connection, users);
-                    transaction.Commit();
-                }
-                catch
-                {
-                    transaction.Rollback();
-                }
-            }
-        }
-
-        public void UpdateUsers(IConnection connection, IEnumerable<User> users)
-        {
-            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
-
-            var remaining = users;
-            while (remaining.Any())
-            {
-                var sql = new StringBuilder();
-
-                var toUpdate = remaining;
-                var skip = 0;
-                foreach (var content in toUpdate)
-                {
-                    var escapedUrl = MySqlHelper.EscapeString(content.Url);
-                    var sqlStatement = $"UPDATE {content.SchemaTable} SET user_url = '{escapedUrl}' WHERE ID = {content.Id};";
-
-                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
-                    {
-                        break;
-                    }
-
-                    skip++;
-                    sql.Append(sqlStatement);
-                }
-
-                command.CommandText = sql.ToString();
-                command.ExecuteNonQuery();
-
-                remaining = remaining.Skip(skip);
-            }
-        }
-
-        #endregion
-
-        #region IUserMetaRepository
-
-        public void UpdateUserMetas(IConnection connection, IEnumerable<Meta> userMetas)
-        {
-            var remaining = userMetas;
-            while (remaining.Any())
-            {
-                var toInsert = remaining;
-                var skip = 0;
-                var sql = new StringBuilder();
-                foreach (var meta in toInsert)
-                {
-                    var sqlStatement = $"UPDATE {meta.SchemaTable} SET meta_value = '{MySqlHelper.EscapeString(meta.MetaValue)}' WHERE umeta_id = {meta.MetaId};";
-
-                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
-                    {
-                        break;
-                    }
-
-                    skip++;
-                    sql.AppendLine(sqlStatement);
-                }
-
-                using (var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection()))
-                {
-                    command.ExecuteNonQuery();
-                }
-
-                remaining = remaining.Skip(skip);
-            }
-        }
-
-        public IEnumerable<Meta> GetUserMeta(IConnection connection)
-        {
-            var metas = new List<Meta>();
-            foreach (var userMetaTable in UserMetaTable)
-            {
-                var sql = new StringBuilder();
-                sql.AppendLine($"SELECT umeta_id, meta_value FROM {userMetaTable} WHERE meta_value like '%http://%';");
-
-                var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
-                {
-                    CommandTimeout = 3600
-                };
-
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var meta = new Meta
-                        {
-                            SchemaTable = userMetaTable,
-                            MetaId = reader.GetUInt64("umeta_id"),
-                            MetaValue = reader.GetString("meta_value")
-                        };
-
-                        metas.Add(meta);
-                    }
-                }
-            }
-            return metas;
         }
 
         #endregion

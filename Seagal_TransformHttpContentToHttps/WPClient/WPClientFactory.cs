@@ -1,6 +1,6 @@
-﻿using Seagal_TransformHttpContentToHttps.WPClient.Model;
+﻿using Fallback_blogg.WPClient.Model;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient
+namespace Fallback_blogg.WPClient
 {
     public class WPClientFactory : IWPClientFactory
     {

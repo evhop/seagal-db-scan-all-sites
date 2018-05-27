@@ -3,14 +3,14 @@ using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StructureMap;
-using Seagal_TransformHttpContentToHttps.Core;
-using Seagal_TransformHttpContentToHttps.View;
-using Seagal_TransformHttpContentToHttps.WPClient.Model;
-using Seagal_TransformHttpContentToHttps.WPClient;
-using Seagal_TransformHttpContentToHttps.Analys;
+using Fallback_blogg.Core;
+using Fallback_blogg.View;
+using Fallback_blogg.WPClient.Model;
+using Fallback_blogg.WPClient;
+using Fallback_blogg.Analys;
 using System.Collections.Generic;
 
-namespace Seagal_TransformHttpContentToHttps
+namespace Fallback_blogg
 {
     public class Program
     {
@@ -92,14 +92,20 @@ namespace Seagal_TransformHttpContentToHttps
                 {
                     Context.Settings.DestinationDb = db;
                     IEnumerable<string> schemas = GetSchema();
+
                     foreach (var schema in schemas)
                     {
+                        if (!schema.Contains("blogg"))
+                        {
+                            continue;
+                        }
+
                         Context.Settings.DestinationDb.Schema = schema;
                         instance.Execute(Context);
                     }
                 }
 
-                Console.WriteLine("done - the blogg are imported");
+                Console.WriteLine("done - the blogg updated");
             }
             catch (Exception e)
             {

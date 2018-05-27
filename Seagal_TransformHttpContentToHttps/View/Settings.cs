@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Seagal_TransformHttpContentToHttps.View
+namespace Fallback_blogg.View
 {
     public class Settings
     {

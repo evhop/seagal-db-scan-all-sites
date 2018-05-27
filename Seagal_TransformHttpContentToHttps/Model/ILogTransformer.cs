@@ -1,4 +1,4 @@
-﻿namespace Seagal_TransformHttpContentToHttps.Model
+﻿namespace Fallback_blogg.Model
 {
     public interface ILogTransformer
     {

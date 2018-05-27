@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Seagal_TransformHttpContentToHttps.Analys
+namespace Fallback_blogg.Analys
 {
     public class AnalysRepository : IAnalysRepository
     {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient.Model
+namespace Fallback_blogg.WPClient.Model
 {
     public interface ITransaction : IDisposable
     {

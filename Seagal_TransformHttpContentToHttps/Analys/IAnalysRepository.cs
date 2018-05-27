@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Seagal_TransformHttpContentToHttps.Analys
+namespace Fallback_blogg.Analys
 {
     public interface IAnalysRepository
     {

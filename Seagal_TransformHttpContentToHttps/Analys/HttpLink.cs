@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Seagal_TransformHttpContentToHttps.Analys
+namespace Fallback_blogg.Analys
 {
     public class HttpLink : IEquatable<HttpLink>
     {

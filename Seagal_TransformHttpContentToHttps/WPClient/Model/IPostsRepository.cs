@@ -1,12 +1,13 @@
 ﻿using System.Collections.Generic;
-using Seagal_TransformHttpContentToHttps.WPClient.View;
+using Fallback_blogg.WPClient.View;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient.Model
+namespace Fallback_blogg.WPClient.Model
 {
 	public interface IPostsRepository
 	{
 		void UpdatePosts( IEnumerable<Post> contents );
 		void UpdatePosts( IConnection connection, IEnumerable<Post> contents );
         IEnumerable<Post> GetPosts(IConnection connection);
+        void CreateSqlUpdatePostsfile(IConnection connection, IEnumerable<Post> posts);
     }
 }

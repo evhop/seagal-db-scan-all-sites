@@ -1,7 +1,7 @@
 ﻿using Renci.SshNet;
 using System;
 
-namespace Seagal_TransformHttpContentToHttps.WPClient.Core
+namespace Fallback_blogg.WPClient.Core
 {
     public class SSHTunnel
     {

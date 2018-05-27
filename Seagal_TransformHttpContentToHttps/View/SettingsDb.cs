@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace Seagal_TransformHttpContentToHttps.View
+namespace Fallback_blogg.View
 {
     public class SettingsDb
     {

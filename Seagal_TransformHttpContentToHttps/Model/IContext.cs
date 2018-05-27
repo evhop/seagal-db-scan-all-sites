@@ -1,8 +1,8 @@
-﻿using Seagal_TransformHttpContentToHttps.View;
-using Seagal_TransformHttpContentToHttps.WPClient.Model;
+﻿using Fallback_blogg.View;
+using Fallback_blogg.WPClient.Model;
 using System.Collections.Generic;
 
-namespace Seagal_TransformHttpContentToHttps.Model
+namespace Fallback_blogg.Model
 {
     public interface IContext: ICommandContext
     {
