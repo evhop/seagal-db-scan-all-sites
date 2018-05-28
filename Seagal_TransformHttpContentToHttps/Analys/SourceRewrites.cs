@@ -2,15 +2,12 @@
 using Fallback_blogg.WPClient.View;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Fallback_blogg.Core;
 using Fallback_blogg.Model;
-using System.Net;
-using System.Threading.Tasks;
 
 namespace Fallback_blogg.Analys
 {
@@ -29,7 +26,7 @@ namespace Fallback_blogg.Analys
 
         private ILogger Logger { get; }
 
-        public void Execute(Context context)
+        public void Execute(Context context, string time)
         {
             var clientFactory = context.ServiceProvider.GetService<IWPClientFactory>();
             var settings = context.Settings;
@@ -39,12 +36,12 @@ namespace Fallback_blogg.Analys
                 using (var connection = client.CreateConnection())
                 {
                     client.GetTableSchema(connection, settings.DestinationDb.Schema);
-                    ExecuteTransaction(context, client, connection);
+                    ExecuteTransaction(context, client, connection, time);
                 }
             }
         }
 
-        private void ExecuteTransaction(IContext context, IWPClient client, IConnection connection)
+        private void ExecuteTransaction(IContext context, IWPClient client, IConnection connection, string time)
         {
             IEnumerable<Post> posts;
             using (var transaction = connection.BeginTransaction())
@@ -52,7 +49,7 @@ namespace Fallback_blogg.Analys
                 try
                 {
                     //Hämta länkar
-                    posts = client.GetPosts(connection);
+                    posts = client.GetPosts(connection, "post_content");
 
                     //Avsluta transactionen
                     transaction.Commit();
@@ -72,8 +69,9 @@ namespace Fallback_blogg.Analys
             {
                 try
                 {
-                    //client.UpdatePosts(connection, updatedPosts);
-                    client.CreateSqlUpdatePostsfile(connection, updatedPosts);
+                    var path = @"C:\Users\evhop\Dokument\dumps\Fallback";
+                    //client.UpdatePosts(connection, updatedPosts, "post_content");
+                    client.CreateSqlUpdatePostsfile(connection, updatedPosts, "post_content", path, time);
                 }
                 catch (Exception e)
                 {

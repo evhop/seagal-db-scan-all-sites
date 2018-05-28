@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Fallback_blogg": {
+      "commandName": "Project",
+      "commandLineArgs": "http"
+    }
+  }
+}

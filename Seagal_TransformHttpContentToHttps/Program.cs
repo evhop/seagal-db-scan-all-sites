@@ -28,20 +28,105 @@ namespace Fallback_blogg
             SetupDependencyInjection();
             AnalysRepository.Initialize(ServiceLocator.ServiceProvider);
 
-            ExecuteCommand();
+            var command = args[0];
+            switch (command)
+            {
+                case "blogg":
+                    ExecuteBloggCommand();
+                    break;
+
+                case "http":
+                    ExecuteHttpCommand();
+                    break;
+            }
             return;
         }
 
-        private static void ExecuteCommand()
+        private static void ExecuteHttpCommand()
         {
             SetSettings(BuildSettings(), ServiceLocator.ServiceProvider);
-            Execute();
+            ExecuteHttp();
+        }
+
+        private static void ExecuteHttp()
+        {
+            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+            var analys = "http";
+            var instance = analysRepository.GetAnalys(analys);
+
+            try
+            {
+                var time = DateTime.Now.ToString("yyyyMMddHHmmss");
+                //Kör för varje databas
+                foreach (var db in Context.Settings.Db)
+                {
+                    Context.Settings.DestinationDb = db;
+                    IEnumerable<string> schemas = GetSchema();
+
+                    foreach (var schema in schemas)
+                    {
+                        //Börjar med att hoppa över blogg
+                        if (schema.Contains("blogg"))
+                        {
+                            continue;
+                        }
+                        Context.Settings.DestinationDb.Schema = schema;
+                        instance.Execute(Context, time);
+                    }
+                }
+
+                Console.WriteLine("done - scaned all databases");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+        }
+
+        private static void ExecuteBloggCommand()
+        {
+            SetSettings(BuildSettings(), ServiceLocator.ServiceProvider);
+            ExecuteBlogg();
+        }
+
+        public static void ExecuteBlogg()
+        {
+            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+            var analys = "img-src";
+            var instance = analysRepository.GetAnalys(analys);
+
+            try
+            {
+                var time = DateTime.Now.ToString("yyyyMMddHHmmss");
+                //Kör för varje databas
+                foreach (var db in Context.Settings.Db)
+                {
+                    Context.Settings.DestinationDb = db;
+                    IEnumerable<string> schemas = GetSchema();
+
+                    foreach (var schema in schemas)
+                    {
+                        if (!schema.Contains("blogg"))
+                        {
+                            continue;
+                        }
+
+                        Context.Settings.DestinationDb.Schema = schema;
+                        instance.Execute(Context, time);
+                    }
+                }
+
+                Console.WriteLine("done - the blogg updated");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
 
         private static void SetSettings(Settings settings, IServiceProvider serviceProvider)
         {
             Context = new Context(settings, serviceProvider);
-            //_pageProcessor = new PostProcessor(Context);
         }
 
         private static Settings BuildSettings()
@@ -78,39 +163,6 @@ namespace Fallback_blogg
             var serviceProvider = container.GetInstance<IServiceProvider>();
 
             ServiceLocator.Initialize(serviceProvider);
-        }
-        public static void Execute()
-        {
-            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var analys = "img-src";
-            var instance = analysRepository.GetAnalys(analys);
-
-            try
-            {
-                //Kör för varje databas
-                foreach (var db in Context.Settings.Db)
-                {
-                    Context.Settings.DestinationDb = db;
-                    IEnumerable<string> schemas = GetSchema();
-
-                    foreach (var schema in schemas)
-                    {
-                        if (!schema.Contains("blogg"))
-                        {
-                            continue;
-                        }
-
-                        Context.Settings.DestinationDb.Schema = schema;
-                        instance.Execute(Context);
-                    }
-                }
-
-                Console.WriteLine("done - the blogg updated");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
         }
 
         private static IEnumerable<string> GetSchema()

@@ -1,7 +1,7 @@
 ﻿{
   "tablePrefix": "wp",
   "db": [
-    /*{
+    {
       "host": "bt-wp-prod-db002.mysql.database.azure.com",
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db002",
@@ -24,7 +24,7 @@
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db005",
       "password": "prd23Hd7emGuUWkwNh352DZRkF3BGcxb"
-    },*/
+    },
     {
       "host": "bt-wp-prod-ts001.mysql.database.azure.com",
       "port": 3306,
