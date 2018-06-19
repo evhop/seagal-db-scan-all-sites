@@ -6,6 +6,7 @@ namespace Fallback_blogg.Model
 {
     public interface IContext: ICommandContext
     {
+        Options Options { get; }
         Settings Settings { get; }
     }
 }

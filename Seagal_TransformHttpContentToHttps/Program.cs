@@ -9,11 +9,13 @@ using Fallback_blogg.WPClient.Model;
 using Fallback_blogg.WPClient;
 using Fallback_blogg.Analys;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Fallback_blogg
 {
     public class Program
     {
+        #region properties
         private static class ServiceLocator
         {
             public static void Initialize(IServiceProvider serviceProvider) => ServiceProvider = serviceProvider;
@@ -22,6 +24,14 @@ namespace Fallback_blogg
         }
 
         public static Context Context { get; set; }
+
+        public static Dictionary<string, string> GetRunSwitchMappings() => new Dictionary<string, string>
+        {
+            { "-p", "preview" },
+            { "-f", "function" },
+            { "-b", "brand" }
+        };
+        #endregion
 
         static void Main(string[] args)
         {
@@ -32,19 +42,19 @@ namespace Fallback_blogg
             switch (command)
             {
                 case "blogg":
-                    ExecuteBloggCommand();
+                    ExecuteBloggCommand(args.Skip(1).ToArray());
                     break;
 
                 case "http":
-                    ExecuteHttpCommand();
+                    ExecuteHttpCommand(args.Skip(1).ToArray());
                     break;
             }
             return;
         }
 
-        private static void ExecuteHttpCommand()
+        private static void ExecuteHttpCommand(string[] args)
         {
-            SetSettings(BuildSettings(), ServiceLocator.ServiceProvider);
+            SetSettings(BuildOptions(args), BuildSettings(), ServiceLocator.ServiceProvider);
             ExecuteHttp();
         }
 
@@ -56,20 +66,22 @@ namespace Fallback_blogg
 
             try
             {
-                var time = DateTime.Now.ToString("yyyyMMddHHmmss");
                 //Kör för varje databas
                 foreach (var db in Context.Settings.Db)
                 {
+                    var time = $"_{db.Host}_" + DateTime.Now.ToString("yyyyMMddHHmmss");
                     Context.Settings.DestinationDb = db;
                     IEnumerable<string> schemas = GetSchema();
 
                     foreach (var schema in schemas)
                     {
+                        /*
                         //Börjar med att hoppa över blogg
-                        if (schema.Contains("blogg"))
+                        if (!schema.StartsWith("kpwebben_se"))// || !schema.Contains("blogg_styleby_nu"))
                         {
                             continue;
                         }
+                        */
                         Context.Settings.DestinationDb.Schema = schema;
                         instance.Execute(Context, time);
                     }
@@ -83,9 +95,9 @@ namespace Fallback_blogg
             }
         }
 
-        private static void ExecuteBloggCommand()
+        private static void ExecuteBloggCommand(string[] args)
         {
-            SetSettings(BuildSettings(), ServiceLocator.ServiceProvider);
+            SetSettings(BuildOptions(args), BuildSettings(), ServiceLocator.ServiceProvider);
             ExecuteBlogg();
         }
 
@@ -97,10 +109,10 @@ namespace Fallback_blogg
 
             try
             {
-                var time = DateTime.Now.ToString("yyyyMMddHHmmss");
                 //Kör för varje databas
                 foreach (var db in Context.Settings.Db)
                 {
+                    var time = $"_{db.Host}_" + DateTime.Now.ToString("yyyyMMddHHmmss");
                     Context.Settings.DestinationDb = db;
                     IEnumerable<string> schemas = GetSchema();
 
@@ -124,9 +136,30 @@ namespace Fallback_blogg
             }
         }
 
-        private static void SetSettings(Settings settings, IServiceProvider serviceProvider)
+        private static void SetSettings(Options options, Settings settings, IServiceProvider serviceProvider)
         {
-            Context = new Context(settings, serviceProvider);
+            Context = new Context(options, settings, serviceProvider);
+        }
+
+        private static Options BuildOptions(string[] args)
+        {
+            var dict = new Dictionary<string, string>
+            {
+                { "preview", "false" },
+                { "function", null },
+                { "brand", null }
+            };
+
+            var builder = new ConfigurationBuilder();
+            builder
+                .AddCommandLine(args, GetRunSwitchMappings());
+
+            var options = new Options();
+
+            var configuration = builder.Build();
+            configuration.Bind(options);
+
+            return options;
         }
 
         private static Settings BuildSettings()

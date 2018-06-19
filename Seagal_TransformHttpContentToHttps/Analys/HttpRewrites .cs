@@ -18,7 +18,7 @@ namespace Fallback_blogg.Analys
     {
         public string Name => "http";
         private static Regex UrlHttpRegex = new Regex($"src=[\"'](http:.+?)[\"']", RegexOptions.Compiled);
-        private List<HttpLink> _imageAnalysList = new List<HttpLink>();
+        private List<HttpLink> _imageAnalysList;
         private Serializer _serializer = new Serializer();
 
         public HttpRewrites(ILoggerFactory loggerFactory)
@@ -35,11 +35,14 @@ namespace Fallback_blogg.Analys
             var clientFactory = context.ServiceProvider.GetService<IWPClientFactory>();
             var settings = context.Settings;
 
+            _imageAnalysList = new List<HttpLink>();
             using (var client = clientFactory.CreateClient(settings.DestinationBuildConnectionString()))
             {
                 using (var connection = client.CreateConnection())
                 {
                     client.GetTableSchema(connection, settings.DestinationDb.Schema);
+                    //Fixa länkar där det finns en https domän, de finns i appsettings under rewriteUrlToHttps
+                    UpdateDomainHttpToHttps(context, client, connection);
                     ExecuteTransaction(context, client, connection);
                 }
             }
@@ -68,6 +71,25 @@ namespace Fallback_blogg.Analys
                         }
                     }
                 }
+            }
+        }
+
+        private void UpdateDomainHttpToHttps(Context context, IWPClient client, IConnection connection)
+        {
+            using (var transaction = connection.BeginTransaction())
+            {
+                foreach (var replaceFrom in context.Settings.RewriteUrlToHttps)
+                {
+                    string replaceTo = replaceFrom.Replace("http://", "https://");
+                    client.UpdatePosts(connection, replaceFrom, replaceTo);
+                    client.UpdatePostMetas(connection, replaceFrom, replaceTo);
+                    client.UpdateComments(connection, replaceFrom, replaceTo);
+                    client.UpdateCommentMetas(connection, replaceFrom, replaceTo);
+                }
+
+                //Avsluta transactionen
+                transaction.Commit();
+                transaction.Dispose();
             }
         }
 
@@ -192,6 +214,7 @@ namespace Fallback_blogg.Analys
                 Id = id,
                 HttpSource = src
             };
+            /*
             try
             {
                 var request = (HttpWebRequest)WebRequest.Create(srcHttps);
@@ -217,6 +240,7 @@ namespace Fallback_blogg.Analys
                     httpLink.Succeded = null;
                 }
             }
+            */
             return httpLink;
         }
     }

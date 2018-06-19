@@ -24,8 +24,8 @@ namespace Fallback_blogg.WPClient
         #region Properties
 
         private List<string> PostsTable => _dbTableSchema.FindAll(t => t.Contains("posts"));
-        private List<string> PostMetaTable => _dbTableSchema.FindAll(t => t.Contains("postmeta"));
-        private List<string> CommentMetaTable => _dbTableSchema.FindAll(t => t.Contains("commentmeta"));
+        private List<string> PostMetasTable => _dbTableSchema.FindAll(t => t.Contains("postmeta"));
+        private List<string> CommentMetasTable => _dbTableSchema.FindAll(t => t.Contains("commentmeta"));
         private List<string> CommentsTable => _dbTableSchema.FindAll(t => t.Contains("comments"));
         private List<string> UsersTable => _dbTableSchema.FindAll(t => t.Contains("users"));
         private List<string> UserMetaTable => _dbTableSchema.FindAll(t => t.Contains("usermeta"));
@@ -171,6 +171,22 @@ namespace Fallback_blogg.WPClient
             }
         }
 
+        public void UpdatePosts(IConnection connection, string replaceFrom, string replaceTo)
+        {
+            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
+
+            foreach (var postTable in PostsTable)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"UPDATE {postTable} SET post_content = replace(post_content, '{replaceFrom}', '{replaceTo}') WHERE post_content like '%{replaceFrom}%';");
+                sql.Append($"UPDATE {postTable} SET post_excerpt = replace(post_excerpt, '{replaceFrom}', '{replaceTo}') WHERE post_excerpt like '%{replaceFrom}%';");
+                sql.Append($"UPDATE {postTable} SET post_content_filtered = replace(post_content_filtered, '{replaceFrom}', '{replaceTo}') WHERE post_content_filtered like '%{replaceFrom}%';");
+
+                command.CommandText = sql.ToString();
+                command.ExecuteNonQuery();
+            }
+        }
+
         public void CreateSqlUpdatePostsfile(IConnection connection, IEnumerable<Post> posts, string colum, string path, string time)
         {
             var sqlNew = new StringBuilder();
@@ -230,7 +246,7 @@ namespace Fallback_blogg.WPClient
             foreach (var postsTable in PostsTable)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} like '%{likeSearch}%';");
+                sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} like '%{likeSearch}%' and post_status not in ('trash') and post_type not in ('revision');");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
                 using (var reader = command.ExecuteReader())
@@ -253,6 +269,20 @@ namespace Fallback_blogg.WPClient
         #endregion
 
         #region IPostMetaRepository
+
+        public void UpdatePostMetas(IConnection connection, string replaceFrom, string replaceTo)
+        {
+            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
+
+            foreach (var postMetaTable in PostMetasTable)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"UPDATE {postMetaTable} SET meta_value = replace(meta_value, '{replaceFrom}', '{replaceTo}') WHERE meta_value like '%{replaceFrom}%';");
+
+                command.CommandText = sql.ToString();
+                command.ExecuteNonQuery();
+            }
+        }
 
         public void UpdatePostMetas(IConnection connection, IEnumerable<Meta> postMetas)
         {
@@ -289,7 +319,7 @@ namespace Fallback_blogg.WPClient
             var sql = new StringBuilder();
 
             var metas = new List<Meta>();
-            foreach (var postMetaTable in PostMetaTable)
+            foreach (var postMetaTable in PostMetasTable)
             {
                 sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value like '%{likeSearch}%';");
                 var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
@@ -375,9 +405,37 @@ namespace Fallback_blogg.WPClient
             }
         }
 
+        public void UpdateComments(IConnection connection, string replaceFrom, string replaceTo)
+        {
+            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
+
+            foreach (var commentTable in CommentsTable)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"UPDATE {commentTable} SET comment_content = replace(comment_content, '{replaceFrom}', '{replaceTo}') WHERE comment_content like '%{replaceFrom}%';");
+
+                command.CommandText = sql.ToString();
+                command.ExecuteNonQuery();
+            }
+        }
+
         #endregion
 
         #region ICommentMetaRepository
+
+        public void UpdateCommentMetas(IConnection connection, string replaceFrom, string replaceTo)
+        {
+            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
+
+            foreach (var commentMetaTable in CommentMetasTable)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"UPDATE {commentMetaTable} SET meta_value = replace(meta_value, '{replaceFrom}', '{replaceTo}') WHERE meta_value like '%{replaceFrom}%';");
+
+                command.CommandText = sql.ToString();
+                command.ExecuteNonQuery();
+            }
+        }
 
         public void UpdateCommentMetas(IConnection connection, IEnumerable<Meta> commentMetas)
         {
@@ -413,7 +471,7 @@ namespace Fallback_blogg.WPClient
         {
             var metas = new List<Meta>();
 
-            foreach (var commentMetaTable in CommentMetaTable)
+            foreach (var commentMetaTable in CommentMetasTable)
             {
                 var sql = new StringBuilder();
                 sql.AppendLine($"SELECT meta_id, meta_value FROM {commentMetaTable} WHERE meta_value like '%{likeSearch}%';");

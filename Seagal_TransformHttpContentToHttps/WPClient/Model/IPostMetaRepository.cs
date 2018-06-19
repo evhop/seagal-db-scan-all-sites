@@ -7,5 +7,6 @@ namespace Fallback_blogg.WPClient.Model
     {
         IEnumerable<Meta> GetPostMeta( IConnection connection, string likeSearch);
         void UpdatePostMetas( IConnection connection, IEnumerable<Meta> postMetas );
-   }
+        void UpdatePostMetas(IConnection connection, string replaceFrom, string replaceTo);
+    }
 }

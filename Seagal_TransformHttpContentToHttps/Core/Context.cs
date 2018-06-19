@@ -8,11 +8,13 @@ namespace Fallback_blogg.Core
     {
         public IServiceProvider ServiceProvider { get; }
         public Settings Settings { get; }
+        public Options Options { get; }
 
-        public Context(Settings settings, IServiceProvider serviceProvider)
+        public Context(Options options, Settings settings, IServiceProvider serviceProvider)
         {
             ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            Options = options ?? throw new ArgumentNullException(nameof(options));
         }
     }
 }

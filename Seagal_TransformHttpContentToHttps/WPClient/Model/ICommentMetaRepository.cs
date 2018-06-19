@@ -7,5 +7,6 @@ namespace Fallback_blogg.WPClient.Model
     {
         IEnumerable<Meta> GetCommentMeta(IConnection connection, string likeSearch);
         void UpdateCommentMetas(IConnection connection, IEnumerable<Meta> commentMetas);
+        void UpdateCommentMetas(IConnection connection, string replaceFrom, string replaceTo);
     }
 }
