@@ -240,15 +240,18 @@ namespace Fallback_blogg.WPClient
             }
             return posts;
         }
-        public IEnumerable<Post> GetPosts(IConnection connection, string colum, string likeSearch)
+        public IEnumerable<Post> GetPosts(IConnection connection, string colum, string regexp)
         {
             var posts = new List<Post>();
             foreach (var postsTable in PostsTable)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} like '%{likeSearch}%' and post_status not in ('trash') and post_type not in ('revision');");
+                sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
 
-                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 3600
+                };
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -314,14 +317,14 @@ namespace Fallback_blogg.WPClient
             }
         }
 
-        public IEnumerable<Meta> GetPostMeta(IConnection connection, string likeSearch)
+        public IEnumerable<Meta> GetPostMeta(IConnection connection, string regexp)
         {
             var sql = new StringBuilder();
 
             var metas = new List<Meta>();
             foreach (var postMetaTable in PostMetasTable)
             {
-                sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value like '%{likeSearch}%';");
+                sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value regexp '{regexp}';");
                 var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
                 {
                     CommandTimeout = 3600
@@ -349,13 +352,16 @@ namespace Fallback_blogg.WPClient
 
         #region ICommentRepository
 
-        public IEnumerable<Comment> GetComments(IConnection connection, string likeSearch)
+        public IEnumerable<Comment> GetComments(IConnection connection, string regexp)
         {
             var comments = new List<Comment>();
             foreach (var commentsTable in CommentsTable)
             {
-                var sql = $"SELECT comment_ID, comment_content FROM {commentsTable} where comment_content like '%{likeSearch}%'; ";
-                var command = new MySqlCommand(sql, connection.GetMySqlConnection());
+                var sql = $"SELECT comment_ID, comment_content FROM {commentsTable} where comment_content regexp '{regexp}'; ";
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 3600
+                };
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -467,14 +473,14 @@ namespace Fallback_blogg.WPClient
             }
         }
 
-        public IEnumerable<Meta> GetCommentMeta(IConnection connection, string likeSearch)
+        public IEnumerable<Meta> GetCommentMeta(IConnection connection, string regexp)
         {
             var metas = new List<Meta>();
 
             foreach (var commentMetaTable in CommentMetasTable)
             {
                 var sql = new StringBuilder();
-                sql.AppendLine($"SELECT meta_id, meta_value FROM {commentMetaTable} WHERE meta_value like '%{likeSearch}%';");
+                sql.AppendLine($"SELECT meta_id, meta_value FROM {commentMetaTable} WHERE meta_value regexp '{regexp}';");
 
                 var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
                 {

@@ -26,7 +26,7 @@ namespace Fallback_blogg.Analys
 
         private ILogger Logger { get; }
 
-        public void Execute(Context context, string time)
+        public void ExecuteAllHttpLinks(Context context, string time)
         {
             var clientFactory = context.ServiceProvider.GetService<IWPClientFactory>();
             var settings = context.Settings;
@@ -116,6 +116,21 @@ namespace Fallback_blogg.Analys
             var url = match.Groups[2].Value;
             var group2 = match.Groups[5].Value;
             return group1 + "\"" + url + "\"" + group2;
+        }
+
+        public void ExecuteUpdateDomain(Context context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void ExecuteGetDomain(Context context, string time)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void WriteUrlToFile(string path, string time)
+        {
+            throw new NotImplementedException();
         }
     }
 }

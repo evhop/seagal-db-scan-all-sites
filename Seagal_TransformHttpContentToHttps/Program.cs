@@ -37,56 +37,54 @@ namespace Fallback_blogg
         {
             SetupDependencyInjection();
             AnalysRepository.Initialize(ServiceLocator.ServiceProvider);
+            SetSettings(BuildOptions(args.Skip(1).ToArray()), BuildSettings(), ServiceLocator.ServiceProvider);
 
             var command = args[0];
             switch (command)
             {
                 case "blogg":
-                    ExecuteBloggCommand(args.Skip(1).ToArray());
+                    ExecuteBloggCommand();
                     break;
 
                 case "http":
-                    ExecuteHttpCommand(args.Skip(1).ToArray());
+                    ExecuteHttpCommand();
                     break;
             }
             return;
         }
 
-        private static void ExecuteHttpCommand(string[] args)
-        {
-            SetSettings(BuildOptions(args), BuildSettings(), ServiceLocator.ServiceProvider);
-            ExecuteHttp();
-        }
-
-        private static void ExecuteHttp()
+        #region ExecuteCommand
+        private static void ExecuteHttpCommand()
         {
             var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
             var analys = "http";
             var instance = analysRepository.GetAnalys(analys);
 
+            var time = DateTime.Now.ToString("yyyyMMddHHmmss");
             try
             {
                 //Kör för varje databas
                 foreach (var db in Context.Settings.Db)
                 {
-                    var time = $"_{db.Host}_" + DateTime.Now.ToString("yyyyMMddHHmmss");
                     Context.Settings.DestinationDb = db;
                     IEnumerable<string> schemas = GetSchema();
 
                     foreach (var schema in schemas)
                     {
-                        /*
+                        
                         //Börjar med att hoppa över blogg
-                        if (!schema.StartsWith("kpwebben_se"))// || !schema.Contains("blogg_styleby_nu"))
+                        if (!schema.StartsWith("skonahem"))
                         {
                             continue;
                         }
-                        */
+                        
                         Context.Settings.DestinationDb.Schema = schema;
-                        instance.Execute(Context, time);
+                        ExecuteHttp(instance, time);
                     }
                 }
 
+                //Skriva ut allt till fil
+                instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\Http_{Context.Options.Function}_", time);
                 Console.WriteLine("done - scaned all databases");
             }
             catch (Exception e)
@@ -95,13 +93,26 @@ namespace Fallback_blogg
             }
         }
 
-        private static void ExecuteBloggCommand(string[] args)
+        private static void ExecuteHttp(ISourceRewrites instance, string time)
         {
-            SetSettings(BuildOptions(args), BuildSettings(), ServiceLocator.ServiceProvider);
-            ExecuteBlogg();
+            switch(Context.Options.Function)
+            {
+                case "getdomain":
+                    instance.ExecuteGetDomain(Context, time);
+                    break;
+                case "updomain":
+                    instance.ExecuteUpdateDomain(Context);
+                    break;
+                case "all":
+                    instance.ExecuteAllHttpLinks(Context, time);
+                    break;
+
+                default:
+                    break;
+            }
         }
 
-        public static void ExecuteBlogg()
+        private static void ExecuteBloggCommand()
         {
             var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
             var analys = "img-src";
@@ -124,7 +135,7 @@ namespace Fallback_blogg
                         }
 
                         Context.Settings.DestinationDb.Schema = schema;
-                        instance.Execute(Context, time);
+                        instance.ExecuteAllHttpLinks(Context, time);
                     }
                 }
 
@@ -135,11 +146,8 @@ namespace Fallback_blogg
                 Console.WriteLine(e.Message);
             }
         }
+        #endregion
 
-        private static void SetSettings(Options options, Settings settings, IServiceProvider serviceProvider)
-        {
-            Context = new Context(options, settings, serviceProvider);
-        }
 
         private static Options BuildOptions(string[] args)
         {
@@ -173,6 +181,11 @@ namespace Fallback_blogg
             configuration.Bind(settings);
 
             return settings;
+        }
+
+        private static void SetSettings(Options options, Settings settings, IServiceProvider serviceProvider)
+        {
+            Context = new Context(options, settings, serviceProvider);
         }
 
         private static void SetupDependencyInjection()

@@ -2,7 +2,7 @@
   "profiles": {
     "Fallback_blogg": {
       "commandName": "Project",
-      "commandLineArgs": "http"
+      "commandLineArgs": "http -f=\"\"getdomain\"\""
     }
   }
 }

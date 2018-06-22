@@ -7,6 +7,7 @@ namespace Fallback_blogg.Analys
         public string SchemaTable { get; set; }
         public ulong Id { get; set; }
         public string HttpSource { get; set; }
+        public string HttpsSource { get; set; }
         public bool? Succeded { get; set; }
 
         public override int GetHashCode() => HttpSource?.GetHashCode() ?? 0;
