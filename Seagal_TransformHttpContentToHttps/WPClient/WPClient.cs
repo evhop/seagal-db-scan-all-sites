@@ -171,6 +171,23 @@ namespace Fallback_blogg.WPClient
             }
         }
 
+        public void CreateUpdateSiteFile(IConnection connection, string replaceFrom, string replaceTo)
+        {
+            var path = $@"C:\Users\evhop\Dokument\dumps\Http_Update_Domain.txt";
+
+            foreach (var postTable in PostsTable)
+            {
+                var sql = new StringBuilder();
+
+                using (var newStream = File.AppendText(path))
+                {
+                    newStream.WriteLine($"UPDATE {postTable} SET post_content = replace(post_content, '{replaceFrom}', '{replaceTo}') WHERE post_content like '%{replaceFrom}%';");
+                    newStream.WriteLine($"UPDATE {postTable} SET post_excerpt = replace(post_excerpt, '{replaceFrom}', '{replaceTo}') WHERE post_excerpt like '%{replaceFrom}%';");
+                    newStream.WriteLine($"UPDATE {postTable} SET post_content_filtered = replace(post_content_filtered, '{replaceFrom}', '{replaceTo}') WHERE post_content_filtered like '%{replaceFrom}%';");
+                }
+            }
+        }
+
         public void UpdatePosts(IConnection connection, string replaceFrom, string replaceTo)
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());

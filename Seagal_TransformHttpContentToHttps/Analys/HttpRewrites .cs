@@ -74,9 +74,9 @@ namespace Fallback_blogg.Analys
             GetHttpForPost(_postContents, 1);
             GetHttpForPost(_postExcerpts, 1);
             GetHttpForPost(_postContentFiltereds, 1);
-            GetHttpForMeta(_postMetas, 1);
             GetHttpForComment(_comments, 1);
-            GetHttpForMeta(_commentMetas, 1);
+            //GetHttpForMeta(_postMetas, 1);
+            //GetHttpForMeta(_commentMetas, 1);
         }
 
         public void ExecuteAllHttpLinks(Context context, string time)
@@ -128,14 +128,14 @@ namespace Fallback_blogg.Analys
                     {
                         try
                         {
-//                            var httpRegexp = "http://";
                             //Hämta länkar
                             _postContents = client.GetPosts(connection, "post_content", DomainHttpRegex.ToString());
                             _postExcerpts = client.GetPosts(connection, "post_excerpt", DomainHttpRegex.ToString());
                             _postContentFiltereds = client.GetPosts(connection, "post_content_filtered", DomainHttpRegex.ToString());
-                            _postMetas = client.GetPostMeta(connection, DomainHttpRegex.ToString());
                             _comments = client.GetComments(connection, DomainHttpRegex.ToString());
-                            _commentMetas = client.GetCommentMeta(connection, DomainHttpRegex.ToString());
+                            //Behöver inte göras
+                            //_postMetas = client.GetPostMeta(connection, DomainHttpRegex.ToString());
+                            //_commentMetas = client.GetCommentMeta(connection, DomainHttpRegex.ToString());
                         }
                         catch (Exception e)
                         {

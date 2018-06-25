@@ -60,7 +60,7 @@ namespace Fallback_blogg
             var analys = "http";
             var instance = analysRepository.GetAnalys(analys);
 
-            var time = DateTime.Now.ToString("yyyyMMddHHmmss");
+            var time = Context.Options.Brand + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
             try
             {
                 //Kör för varje databas
@@ -73,7 +73,7 @@ namespace Fallback_blogg
                     {
                         
                         //Börjar med att hoppa över blogg
-                        if (!schema.StartsWith("skonahem"))
+                        if (!schema.Contains(Context.Options.Brand))
                         {
                             continue;
                         }
