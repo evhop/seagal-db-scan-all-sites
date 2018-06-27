@@ -29,15 +29,15 @@ namespace Fallback_blogg.Analys
     public class HttpRewrites : ISourceRewrites
     {
         public string Name => "http";
-        private static Regex SrcUrlHttpRegex = new Regex($"src=[\"']((http://[^/]+)?(/(?!/).*))[\"']", RegexOptions.Compiled);
+        private static Regex SrcUrlHttpRegex = new Regex($"src=[\"']((http://[^/]+)?(/(?!/)[^\"']+))", RegexOptions.Compiled);
         private static Regex DomainHttpRegex = new Regex($"src=[\"](http://[^/\"]+)", RegexOptions.Compiled);
         private List<HttpLink> _httpAnalysList;
         private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
         private IEnumerable<Post> _postExcerpts;
         private IEnumerable<Post> _postContentFiltereds;
+        private IEnumerable<Post> _comments;
         private IEnumerable<Meta> _postMetas;
-        private IEnumerable<Comment> _comments;
         private IEnumerable<Meta> _commentMetas;
 
         public HttpRewrites(ILoggerFactory loggerFactory)
@@ -71,12 +71,64 @@ namespace Fallback_blogg.Analys
         {
             GetWPHttpLinks(context);
 
-            GetHttpForPost(_postContents, 1);
-            GetHttpForPost(_postExcerpts, 1);
-            GetHttpForPost(_postContentFiltereds, 1);
-            GetHttpForComment(_comments, 1);
-            //GetHttpForMeta(_postMetas, 1);
-            //GetHttpForMeta(_commentMetas, 1);
+            GetHttpForPost(_postContents, 0);
+            GetHttpForPost(_postExcerpts, 0);
+            GetHttpForPost(_postContentFiltereds, 0);
+            GetHttpForComment(_comments, 0);
+
+            List<HttpLink> httpsLinks = new List<HttpLink>();
+            List<HttpLink> httpLinks = new List<HttpLink>();
+            List<HttpLink> httpLinksRest = new List<HttpLink>();
+            GetHttpsLinks(_postContents, httpsLinks, httpLinks,httpLinksRest);
+            GetHttpsLinks(_postExcerpts, httpsLinks, httpLinks, httpLinksRest);
+            GetHttpsLinks(_postContentFiltereds, httpsLinks, httpLinks, httpLinksRest);
+            GetHttpsLinks(_comments, httpsLinks, httpLinks, httpLinksRest);
+            WriteUrlToFile(@"C:\Users\evhop\Dokument\dumps\Http_" + $"{time}_success.txt", httpsLinks);
+            WriteUrlToFile(@"C:\Users\evhop\Dokument\dumps\Http_" + $"{time}_onlyhttp.txt", httpLinks);
+            WriteUrlToFile(@"C:\Users\evhop\Dokument\dumps\Http_" + $"{time}_404.txt", httpLinksRest);
+        }
+
+        private void GetHttpsLinks(IEnumerable<Post> postContents, List<HttpLink> httpsLinks, List<HttpLink> httpLinks, List<HttpLink> httpLinksRest)
+        {
+            //var matches = SrcUrlHttpRegex.Matches(content).ToList();
+            foreach (var httpDomain in _httpAnalysList)
+            {
+                var httpPost = (from post in postContents
+                                where post.Content.Contains(httpDomain.HttpSource)
+                                select post).ToList();
+                foreach (var post in httpPost)
+                {
+                    var matches = SrcUrlHttpRegex.Matches(post.Content).Where(m => m.Success).ToList();
+                    if (!matches.Any())
+                    {
+                        continue;
+                    }
+                    foreach (var match in matches)
+                    {
+                        var httpLink = new HttpLink
+                        {
+                            Id = post.Id,
+                            SchemaTable = post.SchemaTable,
+                            Date = post.Date,
+                            HttpSource = match.Groups[0].Value,
+                        };
+                        if (httpDomain.Succeded == true && match.Groups[0].Value.Contains(httpDomain.HttpSource))
+                        {
+                            var replaceMatch = match.Groups[0].Value.Replace(httpDomain.HttpSource, httpDomain.HttpsSource);
+                            httpLink.HttpsSource = replaceMatch;
+                            httpsLinks.Add(httpLink);
+                        }
+                        else if (httpDomain.Succeded == false && match.Groups[0].Value.Contains(httpDomain.HttpSource))
+                        {
+                            httpLinks.Add(httpLink);
+                        }
+                        else if (match.Groups[0].Value.Contains(httpDomain.HttpSource))
+                        {
+                            httpLinksRest.Add(httpLink);
+                        }
+                    }
+                }
+            }
         }
 
         public void ExecuteAllHttpLinks(Context context, string time)
@@ -158,11 +210,11 @@ namespace Fallback_blogg.Analys
 
             foreach (var post in posts)
             {
-                GetLinkAsync(post.Id, post.SchemaTable, post.Content, urlGroup).Wait();
+                GetLinkAsync(post.Id, post.SchemaTable, post.Content,post.Date, urlGroup).Wait();
             }
         }
 
-        private void GetHttpForComment(IEnumerable<Comment> comments, int urlGroup)
+        private void GetHttpForComment(IEnumerable<Post> comments, int urlGroup)
         {
             if (!comments.Any())
             {
@@ -171,7 +223,7 @@ namespace Fallback_blogg.Analys
 
             foreach (var comment in comments)
             {
-                GetLinkAsync(comment.Id, comment.SchemaTable, comment.Content, urlGroup).Wait();
+                GetLinkAsync(comment.Id, comment.SchemaTable, comment.Content, comment.Date, urlGroup).Wait();
             }
         }
 
@@ -185,7 +237,7 @@ namespace Fallback_blogg.Analys
             MetaUrlRewriter metaUrlRewriter = new MetaUrlRewriter();
             foreach (var postMeta in postMetas)
             {
-                GetLinkAsync(postMeta.MetaId, postMeta.SchemaTable, postMeta.MetaValue, urlGroup).Wait();
+                GetLinkAsync(postMeta.MetaId, postMeta.SchemaTable, postMeta.MetaValue, null, urlGroup).Wait();
                 //var data = _serializer.Deserialize(postMeta.MetaValue);
                 //data = metaUrlRewriter.RewriteUrl(data, urlGroup);
                 //postMeta.MetaValue = _serializer.Serialize(data);
@@ -194,12 +246,12 @@ namespace Fallback_blogg.Analys
         }
 
         #region helper
-        public void WriteUrlToFile(string path, string time)
+        public void WriteUrlToFile(string path)
         {
             if (_httpAnalysList.Any())
             {
-                var pathFail = path + $"_fail_{time}.txt";
-                var pathSuccess = path + $"_success_{time}.txt";
+                var pathFail = path + $"_fail.txt";
+                var pathSuccess = path + $"_success.txt";
                 //Skriv ut filen
                 using (var failStream = File.AppendText(pathFail))
                 {
@@ -223,7 +275,23 @@ namespace Fallback_blogg.Analys
             }
         }
 
-        private async Task GetLinkAsync(ulong id, string schemaTable, string content, int urlGroup)
+        private void WriteUrlToFile(string path, List<HttpLink> links)
+        {
+            if (links.Any())
+            {
+                //Skriv ut filen
+                using (var successStream = File.AppendText(path))
+                {
+                    foreach (var x in links)
+                    {
+                        var logText = $"{x.SchemaTable}\t{x.Id}\t{x.Date}\t{x.HttpSource}\t{x.HttpsSource}";
+                        successStream.WriteLine(logText);
+                    }
+                }
+            }
+        }
+
+        private async Task GetLinkAsync(ulong id, string schemaTable, string content, string date, int urlGroup)
         {
             //var matches = SrcUrlHttpRegex.Matches(content).ToList();
             var matches = DomainHttpRegex.Matches(content).ToList();
@@ -237,11 +305,7 @@ namespace Fallback_blogg.Analys
 
             foreach (var match in matches.Where(m => m.Success).ToList())
             {
-                if (!match.Groups[urlGroup].Value.StartsWith("http"))
-                {
-                    continue;
-                }
-                string sourceUrl = match.Groups[urlGroup].Value.TrimEnd().TrimEnd('"').TrimEnd('\\');
+                string sourceUrl = match.Groups[urlGroup].Value;
                 bool urlExists = (_httpAnalysList.Exists(m => m.HttpSource == sourceUrl) ||
                     newMatches.Exists(m => m.Groups[urlGroup].Value == sourceUrl));
 
@@ -256,7 +320,7 @@ namespace Fallback_blogg.Analys
             IEnumerable<Task<HttpLink>> downloadTasksQuery =
                 from match in newMatches
                 where match.Success
-                select ProcessURLAsync(match.Groups[urlGroup].Value, id, schemaTable);
+                select ProcessURLAsync(match, id, date, schemaTable);
 
             // Use ToArray to execute the query and start the download tasks.  
             Task<HttpLink>[] downloadTasks = downloadTasksQuery.ToArray();
@@ -266,14 +330,15 @@ namespace Fallback_blogg.Analys
             _httpAnalysList.AddRange(httpLinks.ToList());
         }
 
-        private async Task<HttpLink> ProcessURLAsync(string url, ulong id, string schemaTable)
+        private async Task<HttpLink> ProcessURLAsync(Match match, ulong id, string date, string schemaTable)
         {
-            var src = url.TrimEnd().TrimEnd('"').TrimEnd('\\');
+            var src = match.Groups[1].Value;
             var httpLink = new HttpLink
             {
                 SchemaTable = schemaTable,
                 Id = id,
-                HttpSource = src
+                Date = date,
+                HttpSource = match.Groups[0].Value
             };
 
             try
@@ -284,7 +349,7 @@ namespace Fallback_blogg.Analys
                 var responseUri = response.ResponseUri.ToString();
                 if (responseUri.StartsWith("https"))
                 {
-                    httpLink.HttpsSource = responseUri;
+                    httpLink.HttpsSource = httpLink.HttpSource.Replace(src, responseUri.TrimEnd('/'));
                     httpLink.Succeded = true;
                 }
                 else

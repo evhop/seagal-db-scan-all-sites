@@ -263,7 +263,7 @@ namespace Fallback_blogg.WPClient
             foreach (var postsTable in PostsTable)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
+                sql.Append($"SELECT ID, {colum}, post_date FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
                 {
@@ -278,6 +278,7 @@ namespace Fallback_blogg.WPClient
                             SchemaTable = postsTable,
                             Id = reader.GetUInt64("ID"),
                             Content = reader.GetString(colum),
+                            Date = reader.GetDateTime("post_date").ToShortDateString(),
                             OldContent = reader.GetString(colum)
                         });
                     }
@@ -369,12 +370,12 @@ namespace Fallback_blogg.WPClient
 
         #region ICommentRepository
 
-        public IEnumerable<Comment> GetComments(IConnection connection, string regexp)
+        public IEnumerable<Post> GetComments(IConnection connection, string regexp)
         {
-            var comments = new List<Comment>();
+            var comments = new List<Post>();
             foreach (var commentsTable in CommentsTable)
             {
-                var sql = $"SELECT comment_ID, comment_content FROM {commentsTable} where comment_content regexp '{regexp}'; ";
+                var sql = $"SELECT comment_ID, comment_content, comment_date FROM {commentsTable} where comment_content regexp '{regexp}'; ";
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
                 {
                     CommandTimeout = 3600
@@ -383,11 +384,13 @@ namespace Fallback_blogg.WPClient
                 {
                     while (reader.Read())
                     {
-                        comments.Add(new Comment
+                        comments.Add(new Post
                         {
                             SchemaTable = commentsTable,
                             Id = reader.GetUInt64("comment_ID"),
-                            Content = reader.GetString("comment_content")
+                            Content = reader.GetString("comment_content"),
+                            OldContent = reader.GetString("comment_content"),
+                            Date = reader.GetDateTime("comment_date").ToShortDateString()
                         });
                     }
                 }
@@ -396,7 +399,7 @@ namespace Fallback_blogg.WPClient
             return comments;
         }
 
-        public void UpdateComments(IConnection connection, IEnumerable<Comment> comments)
+        public void UpdateComments(IConnection connection, IEnumerable<Post> comments)
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
 

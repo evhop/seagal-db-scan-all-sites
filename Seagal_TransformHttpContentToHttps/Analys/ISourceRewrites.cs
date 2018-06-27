@@ -8,6 +8,6 @@ namespace Fallback_blogg.Analys
         void ExecuteAllHttpLinks(Context context, string time);
         void ExecuteUpdateDomain(Context context);
         void ExecuteGetDomain(Context context, string time);
-        void WriteUrlToFile(string path, string time);    
+        void WriteUrlToFile(string path);    
     }
 }

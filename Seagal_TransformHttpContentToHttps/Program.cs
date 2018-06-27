@@ -84,8 +84,8 @@ namespace Fallback_blogg
                 }
 
                 //Skriva ut allt till fil
-                instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\Http_{Context.Options.Function}_", time);
-                Console.WriteLine("done - scaned all databases");
+                instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\Http_{time}_{Context.Options.Function}");
+              Console.WriteLine("done - scaned all databases");
             }
             catch (Exception e)
             {

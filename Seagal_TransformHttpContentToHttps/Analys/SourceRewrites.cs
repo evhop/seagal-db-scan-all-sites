@@ -128,7 +128,7 @@ namespace Fallback_blogg.Analys
             throw new NotImplementedException();
         }
 
-        public void WriteUrlToFile(string path, string time)
+        public void WriteUrlToFile(string path)
         {
             throw new NotImplementedException();
         }

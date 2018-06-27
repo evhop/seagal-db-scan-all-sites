@@ -6,7 +6,7 @@ namespace Fallback_blogg.WPClient.Model
     public interface ICommentRepository
 	{
         void UpdateComments(IConnection connection, string replaceFrom, string replaceTo);
-        void UpdateComments(IConnection connection, IEnumerable<Comment> comments);
-        IEnumerable<Comment> GetComments(IConnection connection, string likeSearch);
+        void UpdateComments(IConnection connection, IEnumerable<Post> comments);
+        IEnumerable<Post> GetComments(IConnection connection, string likeSearch);
     }
 }
