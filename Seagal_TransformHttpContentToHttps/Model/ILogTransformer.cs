@@ -1,4 +1,4 @@
-﻿namespace Fallback_blogg.Model
+﻿namespace WPDatabaseWork.Model
 {
     public interface ILogTransformer
     {

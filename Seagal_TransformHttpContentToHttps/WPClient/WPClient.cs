@@ -1,4 +1,4 @@
-using Fallback_blogg.WPClient.Core;
+using WPDatabaseWork.WPClient.Core;
 using MySql.Data.MySqlClient;
 using MySql.Data.Types;
 using System;
@@ -6,11 +6,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
-using Fallback_blogg.WPClient.Model;
-using Fallback_blogg.WPClient.View;
+using WPDatabaseWork.WPClient.Model;
+using WPDatabaseWork.WPClient.View;
 using System.IO;
 
-namespace Fallback_blogg.WPClient
+namespace WPDatabaseWork.WPClient
 {
     public class WPClient : IWPClient
     {
@@ -23,12 +23,15 @@ namespace Fallback_blogg.WPClient
 
         #region Properties
 
-        private List<string> PostsTable => _dbTableSchema.FindAll(t => t.Contains("posts"));
-        private List<string> PostMetasTable => _dbTableSchema.FindAll(t => t.Contains("postmeta"));
-        private List<string> CommentMetasTable => _dbTableSchema.FindAll(t => t.Contains("commentmeta"));
-        private List<string> CommentsTable => _dbTableSchema.FindAll(t => t.Contains("comments"));
-        private List<string> UsersTable => _dbTableSchema.FindAll(t => t.Contains("users"));
-        private List<string> UserMetaTable => _dbTableSchema.FindAll(t => t.Contains("usermeta"));
+        private List<string> PostsTables => _dbTableSchema.FindAll(t => t.Contains("posts"));
+        private List<string> PostMetasTables => _dbTableSchema.FindAll(t => t.Contains("postmeta"));
+        private List<string> CommentMetasTables => _dbTableSchema.FindAll(t => t.Contains("commentmeta"));
+        private List<string> CommentsTables => _dbTableSchema.FindAll(t => t.Contains("comments"));
+        private List<string> UsersTables => _dbTableSchema.FindAll(t => t.Contains("users"));
+        private List<string> UserMetaTables => _dbTableSchema.FindAll(t => t.Contains("usermeta"));
+
+        private string PostsTable => _dbTableSchema.First(t => t.Contains("posts"));
+        private string PostMetasTable => _dbTableSchema.First(t => t.Contains("postmeta"));
 
         public int MaxAllowedPacket { get; }
 
@@ -141,7 +144,10 @@ namespace Fallback_blogg.WPClient
 
         public void UpdatePosts(IConnection connection, IEnumerable<Post> posts, string colum)
         {
-            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
+            var command = new MySqlCommand("", connection.GetMySqlConnection())
+            {
+                CommandTimeout = 3600
+            };
 
             var remaining = posts;
             while (remaining.Any())
@@ -175,7 +181,7 @@ namespace Fallback_blogg.WPClient
         {
             var path = $@"C:\Users\evhop\Dokument\dumps\Http_Update_Domain.txt";
 
-            foreach (var postTable in PostsTable)
+            foreach (var postTable in PostsTables)
             {
                 var sql = new StringBuilder();
 
@@ -192,7 +198,7 @@ namespace Fallback_blogg.WPClient
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
 
-            foreach (var postTable in PostsTable)
+            foreach (var postTable in PostsTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"UPDATE {postTable} SET post_content = replace(post_content, '{replaceFrom}', '{replaceTo}') WHERE post_content like '%{replaceFrom}%';");
@@ -211,8 +217,8 @@ namespace Fallback_blogg.WPClient
 
             var schemaIndex = posts.FirstOrDefault().SchemaTable.IndexOf('.');
             var schema = posts.FirstOrDefault().SchemaTable.Substring(0, schemaIndex - 1).Trim('\'').Trim('`');
-            var pathNew = path + $"_{schema}_new_{time}.txt";
-            var pathOld = path + $"_{schema}_old_{time}.txt";
+            var pathNew = path + $"_{schema}_new_{time}.sql";
+            var pathOld = path + $"_{schema}_old_{time}.sql";
 
             using (var newStream = File.AppendText(pathNew))
             {
@@ -235,7 +241,7 @@ namespace Fallback_blogg.WPClient
         public IEnumerable<Post> GetPosts(IConnection connection, string colum)
         {
             var posts = new List<Post>();
-            foreach (var postsTable in PostsTable)
+            foreach (var postsTable in PostsTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} REGEXP ' (href|src)=http';");
@@ -260,7 +266,7 @@ namespace Fallback_blogg.WPClient
         public IEnumerable<Post> GetPosts(IConnection connection, string colum, string regexp)
         {
             var posts = new List<Post>();
-            foreach (var postsTable in PostsTable)
+            foreach (var postsTable in PostsTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"SELECT ID, {colum}, post_date FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
@@ -287,6 +293,63 @@ namespace Fallback_blogg.WPClient
             return posts;
         }
 
+        public IEnumerable<Post> GetAttachments(IConnection connection)
+        {
+            var posts = new List<Post>();
+            foreach (var postsTable in PostsTables)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"SELECT ID, guid, post_title FROM {postsTable} where post_type = 'attachment' and post_status not in ('trash');");
+
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 3600
+                };
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        posts.Add(new Post
+                        {
+                            SchemaTable = postsTable,
+                            Id = reader.GetUInt64("ID"),
+                            Content = reader.GetString("guid"),
+                            OldContent = reader.GetString("post_title")
+                        });
+                    }
+                }
+            }
+            return posts;
+        }
+
+        public IEnumerable<Post> GetRecipeLinks(IConnection connection)
+        {
+            var posts = new List<Post>();
+            foreach (var postsTable in PostsTables)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"select id, concat('http://www.alltommat.se/recept?recipeid=', b.meta_value) postContent, guid from {PostsTable} a inner join {PostMetasTable} b on a.id = b.post_id and a.post_type='recipe' and b.meta_key in ('_external_id') and post_status not in ('trash', 'private'); ");
+
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 3600
+                };
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        posts.Add(new Post
+                        {
+                            Id = reader.GetUInt64("ID"),
+                            Content = reader.GetString("postContent"),
+                            OldContent = reader.GetString("guid")
+                        });
+                    }
+                }
+            }
+            return posts;
+        }
+
         #endregion
 
         #region IPostMetaRepository
@@ -295,7 +358,7 @@ namespace Fallback_blogg.WPClient
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
 
-            foreach (var postMetaTable in PostMetasTable)
+            foreach (var postMetaTable in PostMetasTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"UPDATE {postMetaTable} SET meta_value = replace(meta_value, '{replaceFrom}', '{replaceTo}') WHERE meta_value like '%{replaceFrom}%';");
@@ -340,7 +403,7 @@ namespace Fallback_blogg.WPClient
             var sql = new StringBuilder();
 
             var metas = new List<Meta>();
-            foreach (var postMetaTable in PostMetasTable)
+            foreach (var postMetaTable in PostMetasTables)
             {
                 sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value regexp '{regexp}';");
                 var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
@@ -373,7 +436,7 @@ namespace Fallback_blogg.WPClient
         public IEnumerable<Post> GetComments(IConnection connection, string regexp)
         {
             var comments = new List<Post>();
-            foreach (var commentsTable in CommentsTable)
+            foreach (var commentsTable in CommentsTables)
             {
                 var sql = $"SELECT comment_ID, comment_content, comment_date FROM {commentsTable} where comment_content regexp '{regexp}'; ";
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
@@ -435,7 +498,7 @@ namespace Fallback_blogg.WPClient
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
 
-            foreach (var commentTable in CommentsTable)
+            foreach (var commentTable in CommentsTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"UPDATE {commentTable} SET comment_content = replace(comment_content, '{replaceFrom}', '{replaceTo}') WHERE comment_content like '%{replaceFrom}%';");
@@ -453,7 +516,7 @@ namespace Fallback_blogg.WPClient
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
 
-            foreach (var commentMetaTable in CommentMetasTable)
+            foreach (var commentMetaTable in CommentMetasTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"UPDATE {commentMetaTable} SET meta_value = replace(meta_value, '{replaceFrom}', '{replaceTo}') WHERE meta_value like '%{replaceFrom}%';");
@@ -497,7 +560,7 @@ namespace Fallback_blogg.WPClient
         {
             var metas = new List<Meta>();
 
-            foreach (var commentMetaTable in CommentMetasTable)
+            foreach (var commentMetaTable in CommentMetasTables)
             {
                 var sql = new StringBuilder();
                 sql.AppendLine($"SELECT meta_id, meta_value FROM {commentMetaTable} WHERE meta_value regexp '{regexp}';");
@@ -541,7 +604,7 @@ namespace Fallback_blogg.WPClient
                     {
                         if( reader.Read() )
                         {
-                            return (int)(reader.GetInt32( "Value" ) * 0.9);
+                            return (int)(reader.GetInt32( "Value" ) * 0.5);
                         }
                         else
                         {

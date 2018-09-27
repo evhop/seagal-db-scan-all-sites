@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
-namespace Fallback_blogg.Core
+namespace WPDatabaseWork.Core
 {
     public class ImageBlobProcessor
     {

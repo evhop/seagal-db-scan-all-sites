@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Fallback_blogg.View
+namespace WPDatabaseWork.View
 {
     public class File
     {

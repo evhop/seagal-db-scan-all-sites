@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Fallback_blogg.Analys
+namespace WPDatabaseWork.Analys
 {
     public interface IAnalysRepository
     {

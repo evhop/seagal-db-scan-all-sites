@@ -1,8 +1,8 @@
 {
   "profiles": {
-    "Fallback_blogg": {
+    "WPDatabaseWork": {
       "commandName": "Project",
-      "commandLineArgs": "http -f=\"\"getdomain\"\" -b=\"lantliv\""
+      "commandLineArgs": "alttag"
     }
   }
 }

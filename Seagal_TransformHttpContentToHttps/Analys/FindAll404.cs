@@ -26,7 +26,7 @@ using System.Threading.Tasks;
  */
 namespace WPDatabaseWork.Analys
 {
-    public class HttpRewrites : ISourceRewrites
+    public class FindAll404 : ISourceRewrites
     {
         public string Name => "http";
         private static Regex SrcUrlHttpRegex = new Regex($"src=[\"']((http://[^/]+)?(/(?!/)[^\"']+))", RegexOptions.Compiled);
@@ -40,13 +40,13 @@ namespace WPDatabaseWork.Analys
         private IEnumerable<Meta> _postMetas;
         private IEnumerable<Meta> _commentMetas;
 
-        public HttpRewrites(ILoggerFactory loggerFactory)
+        public FindAll404(ILoggerFactory loggerFactory)
             : this(loggerFactory.CreateLogger<SourceRewrites>())
         {
             _httpAnalysList = new List<HttpLink>();
         }
 
-        public HttpRewrites(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        public FindAll404(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         private ILogger Logger { get; }
 
@@ -131,6 +131,17 @@ namespace WPDatabaseWork.Analys
             }
         }
 
+        public void ExecuteAllHttpLinks(Context context, string time)
+        {
+            GetWPHttpLinks(context);
+
+            GetHttpForPost(_postContents, 1);
+            GetHttpForPost(_postExcerpts, 1);
+            GetHttpForPost(_postContentFiltereds, 1);
+            GetHttpForMeta(_postMetas, 1);
+            GetHttpForComment(_comments, 1);
+            GetHttpForMeta(_commentMetas, 1);
+        }
 
         #endregion
 
@@ -358,6 +369,7 @@ namespace WPDatabaseWork.Analys
             }
             return httpLink;
         }
+
         #endregion
     }
 }

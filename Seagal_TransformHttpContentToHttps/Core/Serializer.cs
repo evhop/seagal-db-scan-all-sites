@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace Fallback_blogg.Core
+namespace WPDatabaseWork.Core
 {
     internal class Serializer
     {

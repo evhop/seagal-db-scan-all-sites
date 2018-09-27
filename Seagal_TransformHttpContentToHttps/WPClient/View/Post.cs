@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Fallback_blogg.WPClient.View
+namespace WPDatabaseWork.WPClient.View
 {
     public class Post
     {

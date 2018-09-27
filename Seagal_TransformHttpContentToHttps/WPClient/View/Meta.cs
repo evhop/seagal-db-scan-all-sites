@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Fallback_blogg.WPClient.View
+namespace WPDatabaseWork.WPClient.View
 {
     public class Meta
     {

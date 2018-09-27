@@ -1,13 +1,12 @@
-﻿using Fallback_blogg.Core;
+﻿using WPDatabaseWork.Core;
 
-namespace Fallback_blogg.Analys
+namespace WPDatabaseWork.Analys
 {
     public interface ISourceRewrites
     {
         string Name { get; }
-        void ExecuteAllHttpLinks(Context context, string time);
-        void ExecuteUpdateDomain(Context context);
-        void ExecuteGetDomain(Context context, string time);
+        void Execute(Context context, string time);
+        void ExecuteUpdate(Context context);
         void WriteUrlToFile(string path);    
     }
 }

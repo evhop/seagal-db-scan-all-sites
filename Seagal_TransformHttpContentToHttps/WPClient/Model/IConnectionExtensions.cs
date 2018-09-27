@@ -1,7 +1,7 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 
-namespace Fallback_blogg.WPClient.Model
+namespace WPDatabaseWork.WPClient.Model
 {
     public static class IConnectionExtensions
     {

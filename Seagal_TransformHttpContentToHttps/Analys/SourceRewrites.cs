@@ -1,15 +1,15 @@
-﻿using Fallback_blogg.WPClient.Model;
-using Fallback_blogg.WPClient.View;
+﻿using WPDatabaseWork.WPClient.Model;
+using WPDatabaseWork.WPClient.View;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Fallback_blogg.Core;
-using Fallback_blogg.Model;
+using WPDatabaseWork.Core;
+using WPDatabaseWork.Model;
 
-namespace Fallback_blogg.Analys
+namespace WPDatabaseWork.Analys
 {
     public class SourceRewrites : ISourceRewrites
     {
@@ -26,7 +26,7 @@ namespace Fallback_blogg.Analys
 
         private ILogger Logger { get; }
 
-        public void ExecuteAllHttpLinks(Context context, string time)
+        public void Execute(Context context, string time)
         {
             var clientFactory = context.ServiceProvider.GetService<IWPClientFactory>();
             var settings = context.Settings;
@@ -118,12 +118,7 @@ namespace Fallback_blogg.Analys
             return group1 + "\"" + url + "\"" + group2;
         }
 
-        public void ExecuteUpdateDomain(Context context)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void ExecuteGetDomain(Context context, string time)
+        public void ExecuteUpdate(Context context)
         {
             throw new NotImplementedException();
         }

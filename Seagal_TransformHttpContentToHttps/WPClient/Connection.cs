@@ -1,8 +1,8 @@
 ﻿using System;
-using Fallback_blogg.WPClient.Model;
+using WPDatabaseWork.WPClient.Model;
 using MySql.Data.MySqlClient;
 
-namespace Fallback_blogg.WPClient
+namespace WPDatabaseWork.WPClient
 {
     public class Connection : IConnection
     {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Fallback_blogg.WPClient.Model
+namespace WPDatabaseWork.WPClient.Model
 {
     public interface IConnection : IDisposable
     {

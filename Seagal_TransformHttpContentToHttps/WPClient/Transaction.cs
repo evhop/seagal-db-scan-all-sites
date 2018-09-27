@@ -1,8 +1,8 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
-using Fallback_blogg.WPClient.Model;
+using WPDatabaseWork.WPClient.Model;
 
-namespace Fallback_blogg.WPClient
+namespace WPDatabaseWork.WPClient
 {
     public class Transaction : ITransaction
     {

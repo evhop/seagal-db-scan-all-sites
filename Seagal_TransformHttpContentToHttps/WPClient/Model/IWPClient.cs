@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Fallback_blogg.WPClient.Model
+namespace WPDatabaseWork.WPClient.Model
 {
     public interface IWPClient : IDisposable, IPostsRepository, ICommentRepository, ICommentMetaRepository, IPostMetaRepository
     {

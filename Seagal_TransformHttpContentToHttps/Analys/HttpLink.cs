@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Fallback_blogg.Analys
+namespace WPDatabaseWork.Analys
 {
     public class HttpLink : IEquatable<HttpLink>
     {

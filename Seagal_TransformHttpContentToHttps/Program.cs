@@ -3,15 +3,15 @@ using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StructureMap;
-using Fallback_blogg.Core;
-using Fallback_blogg.View;
-using Fallback_blogg.WPClient.Model;
-using Fallback_blogg.WPClient;
-using Fallback_blogg.Analys;
+using WPDatabaseWork.Core;
+using WPDatabaseWork.View;
+using WPDatabaseWork.WPClient.Model;
+using WPDatabaseWork.WPClient;
+using WPDatabaseWork.Analys;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Fallback_blogg
+namespace WPDatabaseWork
 {
     public class Program
     {
@@ -48,6 +48,12 @@ namespace Fallback_blogg
 
                 case "http":
                     ExecuteHttpCommand();
+                    break;
+                case "aom":
+                    ExecuteReceptCommand();
+                    break;
+                case "alttag":
+                    ExecuteAltTagCommand();
                     break;
             }
             return;
@@ -93,18 +99,102 @@ namespace Fallback_blogg
             }
         }
 
+        private static void ExecuteAltTagCommand()
+        {
+            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+            var analys = "alttag";
+            var instance = analysRepository.GetAnalys(analys);
+
+            try
+            {
+                //Kör för varje databas
+                foreach (var db in Context.Settings.Db)
+                {
+                    Context.Settings.DestinationDb = db;
+                    IEnumerable<string> schemas = GetSchema();
+
+                    foreach (var schema in schemas)
+                    {
+
+                        //Ska endast göras för TV
+                        if (!schema.Contains("teknikensvarld_se"))
+                        {
+                            continue;
+                        }
+
+                        Context.Settings.DestinationDb.Schema = schema;
+                        ExecuteAltTag(instance);
+                    }
+                }
+
+                //Skriva ut allt till fil
+                Console.WriteLine("done - changed the recipe links");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+        }
+
+        private static void ExecuteAltTag(ISourceRewrites instance)
+        {
+            instance.Execute(Context, DateTime.Now.ToShortDateString());
+        }
+
+        private static void ExecuteReceptCommand()
+        {
+            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+            var analys = "aom";
+            var instance = analysRepository.GetAnalys(analys);
+
+            try
+            {
+                //Kör för varje databas
+                foreach (var db in Context.Settings.Db)
+                {
+                    Context.Settings.DestinationDb = db;
+                    IEnumerable<string> schemas = GetSchema();
+
+                    foreach (var schema in schemas)
+                    {
+
+                        //Börjar med att hoppa över blogg
+                        if (!schema.Contains("alltommat_se"))
+                        {
+                            continue;
+                        }
+
+                        Context.Settings.DestinationDb.Schema = schema;
+                        ExecuteRecept(instance);
+                    }
+                }
+
+                //Skriva ut allt till fil
+                Console.WriteLine("done - changed the recipe links");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+        }
+
+        private static void ExecuteRecept(ISourceRewrites instance)
+        {
+            instance.Execute(Context, DateTime.Now.ToShortDateString());
+        }
+
         private static void ExecuteHttp(ISourceRewrites instance, string time)
         {
             switch(Context.Options.Function)
             {
                 case "getdomain":
-                    instance.ExecuteGetDomain(Context, time);
+                    instance.Execute(Context, time);
                     break;
                 case "updomain":
-                    instance.ExecuteUpdateDomain(Context);
+                    instance.ExecuteUpdate(Context);
                     break;
                 case "all":
-                    instance.ExecuteAllHttpLinks(Context, time);
+                    instance.Execute(Context, time);
                     break;
 
                 default:
@@ -135,7 +225,7 @@ namespace Fallback_blogg
                         }
 
                         Context.Settings.DestinationDb.Schema = schema;
-                        instance.ExecuteAllHttpLinks(Context, time);
+                        instance.Execute(Context, time);
                     }
                 }
 

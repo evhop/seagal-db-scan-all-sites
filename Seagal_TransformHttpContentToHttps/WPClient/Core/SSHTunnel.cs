@@ -1,7 +1,7 @@
 ﻿using Renci.SshNet;
 using System;
 
-namespace Fallback_blogg.WPClient.Core
+namespace WPDatabaseWork.WPClient.Core
 {
     public class SSHTunnel
     {

@@ -1,25 +1,28 @@
 ﻿{
   "tablePrefix": "wp",
   "rewriteUrlToHttps": [
-    "http://www.youtube.com/",
-    "http://vimeo.com/",
-    "http://i.imgur.com/",
-    "http://www.boredpanda.com/",
-    "http://www.cint.com/",
-    "http://i.dailymail.co.uk/",
-    "http://media.tumblr.com/",
-    "http://www.tv4play.se/",
-    "http://embed.ted.com/",
-    "http://cdn.viralnova.com/",
-    "http://www.pleated-jeans.com/"
+    "src=\"http://hd.se",
+    "src=\"http://customessaywritingservices.com",
+    "src=\"http://www.smartinsights.com",
+    "src=\"http://s3.amazonaws.com",
+    "src=\"http://www.studiodiy.com",
+    "src=\"http://cdn1.cdnme.se",
+    "src=\"http://inredningsbloggen.files.wordpress.com",
+    "src=\"http://www.hemtex.se",
+    "src=\"http://tv.aftonbladet.se",
+    "src=\"http://www.ikea.com",
+    "src=\"http://www.residencemagazine.se",
+    "src=\"http://stylizimoblog.com",
+    "src=\"http://www.olssongerthel.se",
+    "src=\"http://miniroom.se"
   ],
   "db": [
-    /*{
+    {
       "host": "bt-wp-staging-db001.mysql.database.azure.com",
       "port": 3306,
       "user": "staging@bt-wp-staging-db001",
       "password": "r)}o4+BiCOvRS.2E"
-    },*/
+    } /*,
     {
       "host": "bt-wp-prod-db002.mysql.database.azure.com",
       "port": 3306,
@@ -49,7 +52,7 @@
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-ts001",
       "password": "K3k4VrEkdKg6VmBCUYv8L2GXJtje4E5H"
-    }
+    }*/
   ]
 }
 

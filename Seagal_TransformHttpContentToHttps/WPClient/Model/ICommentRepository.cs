@@ -1,7 +1,7 @@
-﻿using Fallback_blogg.WPClient.View;
+﻿using WPDatabaseWork.WPClient.View;
 using System.Collections.Generic;
 
-namespace Fallback_blogg.WPClient.Model
+namespace WPDatabaseWork.WPClient.Model
 {
     public interface ICommentRepository
 	{

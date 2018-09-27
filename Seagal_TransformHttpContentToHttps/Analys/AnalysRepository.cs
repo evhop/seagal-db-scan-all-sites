@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Fallback_blogg.Analys
+namespace WPDatabaseWork.Analys
 {
     public class AnalysRepository : IAnalysRepository
     {

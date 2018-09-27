@@ -1,8 +1,8 @@
 ﻿using System;
-using Fallback_blogg.Model;
-using Fallback_blogg.View;
+using WPDatabaseWork.Model;
+using WPDatabaseWork.View;
 
-namespace Fallback_blogg.Core
+namespace WPDatabaseWork.Core
 {
     public class Context : IContext
     {

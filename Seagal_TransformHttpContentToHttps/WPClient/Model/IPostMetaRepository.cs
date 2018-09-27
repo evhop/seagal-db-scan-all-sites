@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using Fallback_blogg.WPClient.View;
+using WPDatabaseWork.WPClient.View;
 
-namespace Fallback_blogg.WPClient.Model
+namespace WPDatabaseWork.WPClient.Model
 {
     public interface IPostMetaRepository
     {
