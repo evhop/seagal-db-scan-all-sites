@@ -78,6 +78,44 @@ namespace WPDatabaseWork.WPClient
                 }
             }
         }
+        public void GetTableSchema(IConnection connection, string schema, string bloggId)
+        {
+            string databaseSchema = "`" + schema + "`.";
+            var sql = $"SELECT distinct concat('{databaseSchema}',table_name) as tableSchemaName FROM information_schema.tables " +
+                $"WHERE TABLE_SCHEMA = '{schema}'" +
+                 "and (table_name like 'wp%posts' or " +
+                    "table_name like 'wp%postmeta' or " +
+                    "table_name like 'wp%comments' or " +
+                    "table_name like 'wp%commentmeta' or " +
+                    "table_name like 'wp%users' or " +
+                    "table_name like 'wp%usermeta') " +
+                    "; ";
+
+            var command = new MySqlCommand(sql, connection.GetMySqlConnection())
+            {
+                CommandTimeout = 3600
+            };
+
+            _dbTableSchema = new List<string>();
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    if (bloggId != "")
+                    {
+                        string tableName = reader.GetString("tableSchemaName");
+                        if (tableName.Contains(bloggId))
+                        {
+                            _dbTableSchema.Add(tableName);
+                        }
+                    }
+                    else
+                    {
+                        _dbTableSchema.Add(reader.GetString("tableSchemaName"));
+                    }
+                }
+            }
+        }
 
         public IEnumerable<string> GetSchema(IConnection connection)
         {
@@ -263,13 +301,48 @@ namespace WPDatabaseWork.WPClient
             }
             return posts;
         }
-        public IEnumerable<Post> GetPosts(IConnection connection, string colum, string regexp)
+        public IEnumerable<Post> GetPostsRegexp(IConnection connection, string colum, string regexp)
         {
             var posts = new List<Post>();
             foreach (var postsTable in PostsTables)
             {
                 var sql = new StringBuilder();
                 sql.Append($"SELECT ID, {colum}, post_date FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
+
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 3600
+                };
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        posts.Add(new Post
+                        {
+                            SchemaTable = postsTable,
+                            Id = reader.GetUInt64("ID"),
+                            Content = reader.GetString(colum),
+                            Date = reader.GetDateTime("post_date").ToShortDateString(),
+                            OldContent = reader.GetString(colum)
+                        });
+                    }
+                }
+            }
+            return posts;
+        }
+
+        public IEnumerable<Post> GetPosts(IConnection connection, string colum, string likeSearch, int limit)
+        {
+            var posts = new List<Post>();
+            foreach (var postsTable in PostsTables)
+            {
+                string limits = "";
+                if (limit > 0)
+                {
+                    limits = $"LIMIT 0, {limit}";
+                }
+                var sql = new StringBuilder();
+                sql.Append($"SELECT ID, {colum}, post_date FROM {postsTable} where {colum} like '{likeSearch}' and post_status not in ('trash') and post_type not in ('revision') {limits};");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
                 {
@@ -353,6 +426,54 @@ namespace WPDatabaseWork.WPClient
         #endregion
 
         #region IPostMetaRepository
+
+        public void CreateSqlInsertPostMetasfile(IConnection connection, IEnumerable<Meta> metas, string path, string time)
+        {
+            var sqlNew = new StringBuilder();
+
+            var schemaIndex = metas.FirstOrDefault().SchemaTable.IndexOf('.');
+            var schema = metas.FirstOrDefault().SchemaTable.Substring(0, schemaIndex - 1).Trim('\'').Trim('`');
+            var pathNew = path + $"_{schema}_{time}.sql";
+
+            using (var newStream = File.AppendText(pathNew))
+            {
+                foreach (var meta in metas)
+                {
+                    var sqlStatement = $"INSERT INTO {meta.SchemaTable} (post_id, meta_key, meta_value) values ({meta.PostId}, '{meta.MetaKey}', '{meta.MetaValue}');";
+                    newStream.WriteLine(sqlStatement);
+                }
+            }
+        }
+
+        public void InsertPostMetas(IConnection connection, IEnumerable<Meta> metas)
+        {
+            var remaining = metas;
+            while (remaining.Any())
+            {
+                var toInsert = remaining;
+                var skip = 0;
+                var sql = new StringBuilder();
+                foreach (var meta in toInsert)
+                {
+                    var sqlStatement = $"INSERT INTO {meta.SchemaTable} (post_id, meta_key, meta_value) values ({meta.PostId}, '{meta.MetaKey}', '{meta.MetaValue}');";
+
+                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
+                    {
+                        break;
+                    }
+
+                    skip++;
+                    sql.AppendLine(sqlStatement);
+                }
+
+                using (var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection()))
+                {
+                    command.ExecuteNonQuery();
+                }
+
+                remaining = remaining.Skip(skip);
+            }
+        }
 
         public void UpdatePostMetas(IConnection connection, string replaceFrom, string replaceTo)
         {
@@ -604,7 +725,8 @@ namespace WPDatabaseWork.WPClient
                     {
                         if( reader.Read() )
                         {
-                            return (int)(reader.GetInt32( "Value" ) * 0.5);
+                            //return (int)(reader.GetInt32( "Value" ) * 0.2);
+                            return 100000;
                         }
                         else
                         {

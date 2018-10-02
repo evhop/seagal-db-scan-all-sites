@@ -181,9 +181,9 @@ namespace WPDatabaseWork.Analys
                         try
                         {
                             //Hämta länkar
-                            _postContents = client.GetPosts(connection, "post_content", DomainHttpRegex.ToString());
-                            _postExcerpts = client.GetPosts(connection, "post_excerpt", DomainHttpRegex.ToString());
-                            _postContentFiltereds = client.GetPosts(connection, "post_content_filtered", DomainHttpRegex.ToString());
+                            _postContents = client.GetPostsRegexp(connection, "post_content", DomainHttpRegex.ToString());
+                            _postExcerpts = client.GetPostsRegexp(connection, "post_excerpt", DomainHttpRegex.ToString());
+                            _postContentFiltereds = client.GetPostsRegexp(connection, "post_content_filtered", DomainHttpRegex.ToString());
                             _comments = client.GetComments(connection, DomainHttpRegex.ToString());
                             //Behöver inte göras
                             //_postMetas = client.GetPostMeta(connection, DomainHttpRegex.ToString());

@@ -69,7 +69,7 @@ namespace WPDatabaseWork.Analys
                         try
                         {
                             //Hämta länkar
-                            _postContents = client.GetPosts(connection, "post_content", AltTagRegex.ToString());
+                            _postContents = client.GetPostsRegexp(connection, "post_content", AltTagRegex.ToString());
                         }
                         catch (Exception e)
                         {

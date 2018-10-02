@@ -46,6 +46,10 @@ namespace WPDatabaseWork
                     ExecuteBloggCommand();
                     break;
 
+                case "caro":
+                    ExecuteCarolinesCommand();
+                    break;
+
                 case "http":
                     ExecuteHttpCommand();
                     break;
@@ -220,6 +224,40 @@ namespace WPDatabaseWork
                     foreach (var schema in schemas)
                     {
                         if (!schema.Contains("blogg"))
+                        {
+                            continue;
+                        }
+
+                        Context.Settings.DestinationDb.Schema = schema;
+                        instance.Execute(Context, time);
+                    }
+                }
+
+                Console.WriteLine("done - the blogg updated");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+        }
+        private static void ExecuteCarolinesCommand()
+        {
+            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+            var analys = "img-car";
+            var instance = analysRepository.GetAnalys(analys);
+
+            try
+            {
+                //Kör för varje databas
+                foreach (var db in Context.Settings.Db)
+                {
+                    var time = $"_{db.Host}_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+                    Context.Settings.DestinationDb = db;
+                    IEnumerable<string> schemas = GetSchema();
+
+                    foreach (var schema in schemas)
+                    {
+                        if (!schema.Contains("blogg_damernasvarld"))
                         {
                             continue;
                         }

@@ -8,7 +8,8 @@ namespace WPDatabaseWork.WPClient.Model
 		void UpdatePosts( IConnection connection, IEnumerable<Post> contents, string colum);
         void UpdatePosts(IConnection connection, string replaceFrom, string replaceTo);
         IEnumerable<Post> GetPosts(IConnection connection, string colum);
-        IEnumerable<Post> GetPosts(IConnection connection, string colum, string likeSearch);
+        IEnumerable<Post> GetPostsRegexp(IConnection connection, string colum, string regexp);
+        IEnumerable<Post> GetPosts(IConnection connection, string colum, string likeSearch, int limit);
         IEnumerable<Post> GetAttachments(IConnection connection);
 
         IEnumerable<Post> GetRecipeLinks(IConnection connection);

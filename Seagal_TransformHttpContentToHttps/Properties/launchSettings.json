@@ -2,7 +2,7 @@
   "profiles": {
     "WPDatabaseWork": {
       "commandName": "Project",
-      "commandLineArgs": "alttag"
+      "commandLineArgs": "caro"
     }
   }
 }

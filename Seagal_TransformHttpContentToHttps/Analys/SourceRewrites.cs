@@ -15,7 +15,6 @@ namespace WPDatabaseWork.Analys
     {
         public string Name => "img-src";
         private static Regex UrlHttpRegex = new Regex($"(=)((http(s)?:?)?//[A-Za-z\\./0-9_\\-ÅÄÖåäö]+[^\"])([> ])", RegexOptions.Compiled);
-        private static Regex UrlSlachRegex = new Regex($"=(//[A-Za-z\\./0-9_\\-ÅÄÖåäö]+[^\"])([> ])", RegexOptions.Compiled);
 
         public SourceRewrites(ILoggerFactory loggerFactory)
             : this(loggerFactory.CreateLogger<SourceRewrites>())

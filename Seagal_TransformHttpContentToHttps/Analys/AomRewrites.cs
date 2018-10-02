@@ -39,7 +39,7 @@ namespace WPDatabaseWork.Analys
                 {
                     client.GetTableSchema(connection, settings.DestinationDb.Schema);
                     _postRecipeLinks = client.GetRecipeLinks(connection);
-                    _postContents = client.GetPosts(connection, "post_content", SrcRecipeidRegex.ToString());
+                    _postContents = client.GetPostsRegexp(connection, "post_content", SrcRecipeidRegex.ToString());
 
                     foreach (var recipeLink in _postRecipeLinks)
                     {

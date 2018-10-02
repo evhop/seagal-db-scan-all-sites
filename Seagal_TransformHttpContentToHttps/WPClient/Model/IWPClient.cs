@@ -7,6 +7,7 @@ namespace WPDatabaseWork.WPClient.Model
     {
         IConnection CreateConnection();
         void GetTableSchema(IConnection connection, string schema);
+        void GetTableSchema(IConnection connection, string schema, string bloggId);
         IEnumerable<string> GetSchema(IConnection connection);
     }
 }
