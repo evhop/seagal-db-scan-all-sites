@@ -14,5 +14,6 @@ namespace WPDatabaseWork.WPClient.Model
 
         IEnumerable<Post> GetRecipeLinks(IConnection connection);
         void CreateSqlUpdatePostsfile(IConnection connection, IEnumerable<Post> posts, string colum, string path, string time);
+        void CreateSqlReplaceUpdatePostsfile(IConnection connection, IEnumerable<Post> posts, string colum, string path, string time);
     }
 }

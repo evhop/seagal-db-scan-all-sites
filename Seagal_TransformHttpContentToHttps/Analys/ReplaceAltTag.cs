@@ -27,6 +27,7 @@ namespace WPDatabaseWork.Analys
         private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
         private List<ulong> _ImageNotExistsId;
+        private List<Post> _replaceContents;
 
         public ReplaceAltTag(ILoggerFactory loggerFactory)
             : this(loggerFactory.CreateLogger<SourceRewrites>())
@@ -85,6 +86,7 @@ namespace WPDatabaseWork.Analys
 
         private void GetImageForPost(IContext context)
         {
+            _replaceContents = new List<Post>();
             if (!_postContents.Any())
             {
                 return;
@@ -94,17 +96,17 @@ namespace WPDatabaseWork.Analys
 
             foreach (var post in _postContents)
             {
-                string washedContent = htmlParser.ConvertToHtml(post.Content, post.Id);
-                if (washedContent == "not exists")
+                List<Post> replaceContent = htmlParser.ConvertToHtml(post);
+                foreach (var content in replaceContent)
                 {
-                    if (!_ImageNotExistsId.Contains(post.Id))
+                    if (content.Content == "not exists")
                     {
-                        _ImageNotExistsId.Add(post.Id);
+                        _ImageNotExistsId.Add(content.Id);
                     }
-                }
-                else
-                {
-                    post.Content = washedContent;
+                    else
+                    {
+                        _replaceContents.Add(content);
+                    }
                 }
             }
         }
@@ -138,7 +140,7 @@ namespace WPDatabaseWork.Analys
                     client.GetTableSchema(connection, settings.DestinationDb.Schema);
                     using (var transaction = connection.BeginTransaction())
                     {
-                        client.CreateSqlUpdatePostsfile(connection, _postContents, "post_content", path, time);
+                        client.CreateSqlReplaceUpdatePostsfile(connection, _replaceContents, "post_content", path, time);
                     }
                 }
             }

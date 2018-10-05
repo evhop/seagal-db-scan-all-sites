@@ -275,6 +275,23 @@ namespace WPDatabaseWork.WPClient
                 }
             }
         }
+        public void CreateSqlReplaceUpdatePostsfile(IConnection connection, IEnumerable<Post> posts, string colum, string path, string time)
+        {
+            var sqlNew = new StringBuilder();
+
+            var schemaIndex = posts.FirstOrDefault().SchemaTable.IndexOf('.');
+            var schema = posts.FirstOrDefault().SchemaTable.Substring(0, schemaIndex - 1).Trim('\'').Trim('`');
+            var pathNew = path + $"_{schema}_{time}.sql";
+
+            using (var newStream = File.AppendText(pathNew))
+            {
+                foreach (var post in posts)
+                {
+                    var sqlStatement = $"UPDATE {post.SchemaTable} SET {colum} = replace({colum}, '{post.Content}','{post.OldContent}') WHERE ID = {post.Id};";
+                    newStream.WriteLine(sqlStatement);
+                }
+            }
+        }
 
         public IEnumerable<Post> GetPosts(IConnection connection, string colum)
         {

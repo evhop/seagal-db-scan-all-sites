@@ -23,11 +23,13 @@ namespace WPDatabaseWork.Core
             _attachments = GetAttachments();
         }
 
-        public string ConvertToHtml(string content, ulong postId)
+        public List<Post> ConvertToHtml(Post post)
         {
+            List<Post> replaceContents = new List<Post>();
+
             try
             {
-                var elements = _tagRegex.Matches(content).ToList();
+                var elements = _tagRegex.Matches(post.Content).ToList();
 
                 foreach (var element in elements)
                 {
@@ -51,11 +53,21 @@ namespace WPDatabaseWork.Core
                             }
 
                             string newElement = element.ToString().Replace("alt=\"\"", "alt=\"" + alt + "\"");
-                            content = content.Replace(element.ToString(), newElement);
+                            replaceContents.Add(new Post
+                            {
+                                SchemaTable = post.SchemaTable,
+                                Id = post.Id,
+                                Content = element.ToString(),
+                                OldContent = newElement
+                            });
                         }
                         else
                         {
-                            content = "not exists";
+                            replaceContents.Add(new Post
+                            {
+                                Id = post.Id,
+                                Content = "not exists"
+                            });
                         }
                     }
                 }
@@ -65,7 +77,7 @@ namespace WPDatabaseWork.Core
                 Console.WriteLine("Error ConvertToHtml " + e);
             }
 
-            return content;
+            return replaceContents;
         }
 
         private List<Post> GetAttachments()
