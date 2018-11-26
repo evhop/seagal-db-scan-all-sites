@@ -22,7 +22,7 @@
       "port": 3306,
       "user": "staging@bt-wp-staging-db001",
       "password": "r)}o4+BiCOvRS.2E"
-    },
+    },*/
     {
       "host": "bt-wp-prod-db002.mysql.database.azure.com",
       "port": 3306,
@@ -34,13 +34,13 @@
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db003",
       "password": "wUSDex7tmgLPXTuDGXqSkrXd"
-    },*/
+    },
     {
       "host": "bt-wp-prod-db004.mysql.database.azure.com",
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db004",
       "password": "cqdyUsqe59UcK6Hqmfj5LTPK"
-    }/*,
+    },
     {
       "host": "bt-wp-prod-db005.mysql.database.azure.com",
       "port": 3306,
@@ -52,7 +52,7 @@
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-ts001",
       "password": "K3k4VrEkdKg6VmBCUYv8L2GXJtje4E5H"
-    }*/
+    }
   ]
 }
 

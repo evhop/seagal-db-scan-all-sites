@@ -10,5 +10,6 @@ namespace WPDatabaseWork.WPClient.View
         public string Date { get; set; }
         public string Content { get; set; }
         public string OldContent { get; set; }
+        public string Guid { get; set; }
     }
 }

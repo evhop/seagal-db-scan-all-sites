@@ -13,7 +13,7 @@ namespace WPDatabaseWork.Analys
 {
     public class SourceRewritesCarolinesMode : ISourceRewrites
     {
-        public string Name => "img-car";
+        public string Name => "caro";
         private static Regex ImageRegex = new Regex($"/[0-9]+[\\-0-9]+?[\\.a-zA-Z]+", RegexOptions.Compiled);
         private static Regex UrlRegex = new Regex("<img\\s+[^>]*?src=\"([^\"\\r\\n<>]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 

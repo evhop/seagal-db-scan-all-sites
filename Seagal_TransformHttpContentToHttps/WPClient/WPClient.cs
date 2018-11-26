@@ -32,6 +32,7 @@ namespace WPDatabaseWork.WPClient
 
         private string PostsTable => _dbTableSchema.First(t => t.Contains("posts"));
         private string PostMetasTable => _dbTableSchema.First(t => t.Contains("postmeta"));
+        private string OptionTable => _dbTableSchema.First(t => t.Contains("options"));
 
         public int MaxAllowedPacket { get; }
 
@@ -60,6 +61,7 @@ namespace WPDatabaseWork.WPClient
                     "table_name like 'wp%postmeta' or " +
                     "table_name like 'wp%comments' or " +
                     "table_name like 'wp%commentmeta' or " +
+                    "table_name like 'wp%options' or " +
                     "table_name like 'wp%users' or " +
                     "table_name like 'wp%usermeta') " +
                     "; ";
@@ -124,6 +126,7 @@ namespace WPDatabaseWork.WPClient
                     "table_name like 'wp%postmeta' or " +
                     "table_name like 'wp%comments' or " +
                     "table_name like 'wp%commentmeta' or " +
+                    "table_name like 'wp%options' or " +
                     "table_name like 'wp%users' or " +
                     "table_name like 'wp%usermeta') " +
                     "; ";
@@ -287,7 +290,7 @@ namespace WPDatabaseWork.WPClient
             {
                 foreach (var post in posts)
                 {
-                    var sqlStatement = $"UPDATE {post.SchemaTable} SET {colum} = replace({colum}, '{post.Content}','{post.OldContent}') WHERE ID = {post.Id};";
+                    var sqlStatement = $"UPDATE {post.SchemaTable} SET {colum} = replace({colum}, '{post.OldContent}','{post.Content}') WHERE ID = {post.Id};";
                     newStream.WriteLine(sqlStatement);
                 }
             }
@@ -299,7 +302,7 @@ namespace WPDatabaseWork.WPClient
             foreach (var postsTable in PostsTables)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, {colum} FROM {postsTable} where {colum} REGEXP ' (href|src)=http';");
+                sql.Append($"SELECT ID, {colum}, guid FROM {postsTable} where {colum} REGEXP ' (href|src)=http';");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
                 using (var reader = command.ExecuteReader())
@@ -311,7 +314,8 @@ namespace WPDatabaseWork.WPClient
                             SchemaTable = postsTable,
                             Id = reader.GetUInt64("ID"),
                             Content = reader.GetString(colum),
-                            OldContent = reader.GetString(colum)
+                            OldContent = reader.GetString(colum),
+                            Guid = reader.GetString("guid")
                         });
                     }
                 }
@@ -324,7 +328,7 @@ namespace WPDatabaseWork.WPClient
             foreach (var postsTable in PostsTables)
             {
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, {colum}, post_date FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
+                sql.Append($"SELECT ID, {colum}, post_date, guid FROM {postsTable} where {colum} regexp '{regexp}' and post_status not in ('trash') and post_type not in ('revision');");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
                 {
@@ -340,7 +344,8 @@ namespace WPDatabaseWork.WPClient
                             Id = reader.GetUInt64("ID"),
                             Content = reader.GetString(colum),
                             Date = reader.GetDateTime("post_date").ToShortDateString(),
-                            OldContent = reader.GetString(colum)
+                            OldContent = reader.GetString(colum),
+                            Guid = reader.GetString("guid")
                         });
                     }
                 }
@@ -359,7 +364,7 @@ namespace WPDatabaseWork.WPClient
                     limits = $"LIMIT 0, {limit}";
                 }
                 var sql = new StringBuilder();
-                sql.Append($"SELECT ID, {colum}, post_date FROM {postsTable} where {colum} like '{likeSearch}' and post_status not in ('trash') and post_type not in ('revision') {limits};");
+                sql.Append($"SELECT ID, {colum}, post_date, guid FROM {postsTable} where {colum} like '{likeSearch}' and post_status not in ('trash') and post_type not in ('revision') {limits};");
 
                 var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
                 {
@@ -375,7 +380,8 @@ namespace WPDatabaseWork.WPClient
                             Id = reader.GetUInt64("ID"),
                             Content = reader.GetString(colum),
                             Date = reader.GetDateTime("post_date").ToShortDateString(),
-                            OldContent = reader.GetString(colum)
+                            OldContent = reader.GetString(colum),
+                            Guid = reader.GetString("guid")
                         });
                     }
                 }
@@ -536,14 +542,14 @@ namespace WPDatabaseWork.WPClient
             }
         }
 
-        public IEnumerable<Meta> GetPostMeta(IConnection connection, string regexp)
+        public IEnumerable<Meta> GetPostMeta(IConnection connection, string meta_key)
         {
             var sql = new StringBuilder();
 
             var metas = new List<Meta>();
             foreach (var postMetaTable in PostMetasTables)
             {
-                sql.AppendLine($"SELECT meta_id, meta_value FROM {postMetaTable} WHERE meta_value regexp '{regexp}';");
+                sql.AppendLine($"SELECT meta_id, post_id, meta_key, meta_value FROM {postMetaTable} WHERE meta_key = '{meta_key}';");
                 var command = new MySqlCommand(@sql.ToString(), connection.GetMySqlConnection())
                 {
                     CommandTimeout = 3600
@@ -557,6 +563,8 @@ namespace WPDatabaseWork.WPClient
                         {
                             SchemaTable = postMetaTable,
                             MetaId = reader.GetUInt64("meta_id"),
+                            PostId = reader.GetUInt64("post_id"),
+                            MetaKey = reader.GetString("meta_key"),
                             MetaValue = reader.GetString("meta_value")
                         };
 
@@ -565,6 +573,49 @@ namespace WPDatabaseWork.WPClient
                 }
             }
             return metas;
+        }
+
+        #endregion
+
+        #region IOptionRepository
+
+
+        public void UpdateOptions(IConnection connection, string optionValue, string option_name)
+        {
+            var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
+
+            var escapedValue = MySqlHelper.EscapeString(optionValue);
+            var escapedName = MySqlHelper.EscapeString(option_name);
+            var sql = $"UPDATE {OptionTable} SET option_value = '{optionValue}' WHERE option_name = '{option_name}';";
+
+            command.CommandText = sql;
+            command.ExecuteNonQuery();
+        }
+
+        public Options GetOptionSetting(IConnection connection, string optionName)
+        {
+            var sql = $"SELECT option_name, option_value, autoload from  {OptionTable} where option_name = @optionName;";
+            var command = new MySqlCommand(sql, connection.GetMySqlConnection());
+
+            command.Parameters.Add(new MySqlParameter
+            {
+                ParameterName = "@optionName",
+                MySqlDbType = MySqlDbType.VarString,
+                Value = optionName
+            });
+
+            using (var reader = command.ExecuteReader())
+            {
+                var option = new Options();
+                while (reader.Read())
+                {
+                    option.OptionName = reader.GetString("option_name");
+                    option.OptionValue = reader.GetString("option_value");
+                    option.Autoload = reader.GetString("autoload");
+                }
+
+                return option;
+            }
         }
 
         #endregion

@@ -13,7 +13,7 @@ namespace WPDatabaseWork.Analys
 {
     public class SourceRewrites : ISourceRewrites
     {
-        public string Name => "img-src";
+        public string Name => "src";
         private static Regex UrlHttpRegex = new Regex($"(=)((http(s)?:?)?//[A-Za-z\\./0-9_\\-ÅÄÖåäö]+[^\"])([> ])", RegexOptions.Compiled);
 
         public SourceRewrites(ILoggerFactory loggerFactory)

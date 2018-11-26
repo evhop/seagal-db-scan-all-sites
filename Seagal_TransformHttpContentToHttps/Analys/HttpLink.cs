@@ -10,6 +10,7 @@ namespace WPDatabaseWork.Analys
         public string HttpSource { get; set; }
         public string HttpsSource { get; set; }
         public bool? Succeded { get; set; }
+        public string Guid { get; set; }
 
         public override int GetHashCode() => HttpSource?.GetHashCode() ?? 0;
 

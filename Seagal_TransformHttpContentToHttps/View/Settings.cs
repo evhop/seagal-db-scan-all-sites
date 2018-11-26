@@ -17,6 +17,7 @@ namespace WPDatabaseWork.View
         public virtual IEnumerable<SettingsDb> Db { get; set; }
 
         public SettingsDb DestinationDb { get; internal set; }
+        public SettingsSite DestinationSite { get; internal set; }
         public string DestinationBuildConnectionString() => $"Server={DestinationDb.Host}; Uid={DestinationDb.User}; Pwd={DestinationDb.Password}; Character Set={DestinationDb.Characterset};SslMode=none";
     }
 }

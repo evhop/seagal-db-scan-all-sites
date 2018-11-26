@@ -40,16 +40,25 @@ namespace WPDatabaseWork.Analys
                     client.GetTableSchema(connection, settings.DestinationDb.Schema);
                     _postRecipeLinks = client.GetRecipeLinks(connection);
                     _postContents = client.GetPostsRegexp(connection, "post_content", SrcRecipeidRegex.ToString());
+                    List<Post> changeContent = new List<Post>();
 
                     foreach (var recipeLink in _postRecipeLinks)
                     {
-                        foreach (var post in _postContents)
+                        var postWithLink = _postContents.Where(x => x.Content.Contains($"\"{recipeLink.Content}\"")).ToList();
+                        foreach (var post in postWithLink)
                         {
-                            post.Content.Replace(recipeLink.Content, recipeLink.OldContent);
+                            Post newLink = new Post
+                            {
+                                Id = post.Id,
+                                SchemaTable = post.SchemaTable,
+                                Date = post.Date,
+                                Content = $"\"{recipeLink.OldContent}\"",
+                                OldContent = $"\"{recipeLink.Content}\""
+                            };
+                            changeContent.Add(newLink);
                         }
                     }
-                    List<Post> diffContent = _postContents.Where(x => x.Content == x.OldContent).ToList();
-                    client.CreateSqlUpdatePostsfile(connection, _postContents, "post_content", @"C:\Users\evhop\Dokument\dumps\aom_recipeId", DateTime.Now.ToShortDateString());
+                    client.CreateSqlReplaceUpdatePostsfile(connection, changeContent, "post_content", @"C:\Users\evhop\Dokument\dumps\aom_recipeId", DateTime.Now.ToShortDateString());
                 }
             }
         }

@@ -7,7 +7,7 @@ namespace WPDatabaseWork.WPClient.Model
     {
         void InsertPostMetas(IConnection connection, IEnumerable<Meta> metas);
         void CreateSqlInsertPostMetasfile(IConnection connection, IEnumerable<Meta> metas, string path, string time);
-        IEnumerable<Meta> GetPostMeta( IConnection connection, string likeSearch);
+        IEnumerable<Meta> GetPostMeta( IConnection connection, string metaKey);
         void UpdatePostMetas( IConnection connection, IEnumerable<Meta> postMetas );
         void UpdatePostMetas(IConnection connection, string replaceFrom, string replaceTo);
     }

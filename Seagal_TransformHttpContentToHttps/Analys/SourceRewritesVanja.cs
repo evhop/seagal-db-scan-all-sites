@@ -11,31 +11,26 @@ using WPDatabaseWork.Core;
 using WPDatabaseWork.Model;
 using System.Net;
 using System.Threading.Tasks;
-/* Todo
- * Hitta alla img src som har alt=""
- * Hämta bildtiteln
- * 
- * Rensa bort _ och ev tab
- */
+using WPDatabaseWork.View;
+
 namespace WPDatabaseWork.Analys
 {
-    public class ReplaceAltTag : ISourceRewrites
+    public class SourceRewritesVanja //: ISourceRewrites
     {
-        public string Name => "alttag";
-        private static Regex AltTagRegex = new Regex($"alt=\"\"", RegexOptions.Compiled);
+        public string Name => "vanja";
+        private static Regex ImageRegex = new Regex($"/[0-9]+[\\-0-9]+?[\\.a-zA-Z]+", RegexOptions.Compiled);
+        private static Regex UrlRegex = new Regex("<img\\s+[^>]*?src=\"([^\"\\r\\n<>]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private List<HttpLink> _httpAnalysList;
         private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
-        private List<ulong> _ImageNotExistsId;
         private List<Post> _replaceContents;
-
-        public ReplaceAltTag(ILoggerFactory loggerFactory)
+        
+        public SourceRewritesVanja(ILoggerFactory loggerFactory)
             : this(loggerFactory.CreateLogger<SourceRewrites>())
         {
-            _ImageNotExistsId = new List<ulong>();
         }
 
-        public ReplaceAltTag(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        public SourceRewritesVanja(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         private ILogger Logger { get; }
 
@@ -47,15 +42,14 @@ namespace WPDatabaseWork.Analys
 
         public void Execute(Context context, string time)
         {
-            GetWPAltTag(context);
+            GetWPPost(context);
             GetImageForPost(context);
-            WriteUrlToFile(context, @"C:\Users\evhop\Dokument\dumps\TV_AltTag_", time);
-            WriteUrlToFile(@"C:\Users\evhop\Dokument\dumps\TV_AltTag_ImageNotExists.txt");
+            WriteUrlToFile(context, @"C:\Users\evhop\Dokument\dumps\Vanja_", time);
         }
 
         #endregion
 
-        private void GetWPAltTag(IContext context)
+        private void GetWPPost(IContext context)
         {
             var clientFactory = context.ServiceProvider.GetService<IWPClientFactory>();
             var settings = context.Settings;
@@ -70,7 +64,7 @@ namespace WPDatabaseWork.Analys
                         try
                         {
                             //Hämta länkar
-                            _postContents = client.GetPostsRegexp(connection, "post_content", AltTagRegex.ToString());
+                            _postContents = client.GetPostsRegexp(connection, "post_content", "vanja\\.metromode");
                         }
                         catch (Exception e)
                         {
@@ -96,36 +90,13 @@ namespace WPDatabaseWork.Analys
 
             foreach (var post in _postContents)
             {
-                List<Post> replaceContent = htmlParser.AltTagTV(post);
-                foreach (var content in replaceContent)
-                {
-                    if (content.Content == "not exists")
-                    {
-                        _ImageNotExistsId.Add(content.Id);
-                    }
-                    else
-                    {
-                        _replaceContents.Add(content);
-                    }
-                }
+                _replaceContents.AddRange(htmlParser.ImageVanja(post));
             }
         }
 
         #region helper
         public void WriteUrlToFile(string path)
         {
-            if (_ImageNotExistsId.Any())
-            {
-                //Skriv ut filen
-                using (var successStream = File.AppendText(path))
-                {
-                    foreach (var x in _ImageNotExistsId)
-                    {
-                        var logText = $"{x}";
-                        successStream.WriteLine(logText);
-                    }
-                }
-            }
         }
 
         private void WriteUrlToFile(IContext context, string path, string time)

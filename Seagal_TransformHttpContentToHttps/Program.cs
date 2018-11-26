@@ -29,7 +29,10 @@ namespace WPDatabaseWork
         {
             { "-p", "preview" },
             { "-f", "function" },
-            { "-b", "brand" }
+            { "-b", "brand" },
+            { "-i", "bloggid" },
+            { "-y", "year" },
+            { "-u", "updateurlfromimageid" }
         };
         #endregion
 
@@ -42,34 +45,43 @@ namespace WPDatabaseWork
             var command = args[0];
             switch (command)
             {
-                case "blogg":
-                    ExecuteBloggCommand();
+                case "src":
+                    ExecuteCommand(command, "blogg");
                     break;
-
                 case "caro":
-                    ExecuteCarolinesCommand();
-                    break;
-
-                case "http":
-                    ExecuteHttpCommand();
+                    ExecuteCommand(command, "blogg_damernasvarld");
                     break;
                 case "aom":
-                    ExecuteReceptCommand();
+                    ExecuteCommand(command, "alltommat_se");
                     break;
                 case "alttag":
-                    ExecuteAltTagCommand();
+                    ExecuteCommand(command, "teknikensvarld_se");
+                    break;
+                case "vanja":
+                    ExecuteCommand(command, "blogg_mama");
+                    break;
+                case "src404":
+                    ExecuteHttpCommand(command);
+                    break;
+                //href404 -b="alltommat_se" -y=""
+                case "href404":
+                    ExecuteHttpCommand(command);
+                    break;
+                case "http":
+                    ExecuteHttpCommand(command);
                     break;
             }
             return;
         }
 
         #region ExecuteCommand
-        private static void ExecuteHttpCommand()
+
+        private static void ExecuteHttpCommand(string command)
         {
             var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var analys = "http";
-            var instance = analysRepository.GetAnalys(analys);
+            var instance = analysRepository.GetAnalys(command);
 
+            Console.WriteLine($"start - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
             var time = Context.Options.Brand + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
             try
             {
@@ -81,136 +93,51 @@ namespace WPDatabaseWork
 
                     foreach (var schema in schemas)
                     {
-                        
-                        //Börjar med att hoppa över blogg
-                        if (!schema.Contains(Context.Options.Brand))
+                        //Börjar med och kolla om bran är satt annars kolla att den slutar på
+                        if (!String.IsNullOrEmpty(Context.Options.Brand))
                         {
-                            continue;
+                            if (schema != Context.Options.Brand)
+                            {
+                                continue;
+                            }
                         }
-                        
+
                         Context.Settings.DestinationDb.Schema = schema;
                         ExecuteHttp(instance, time);
                     }
                 }
 
+                string function = Context.Options.Function == "" ? "" : $"_{Context.Options.Function}";
+                string bloggId = Context.Options.BloggId == "" ? "" : $"_{Context.Options.BloggId}";
+                string year = Context.Options.Year == "" ? "" : $"_{Context.Options.Year}";
+
                 //Skriva ut allt till fil
-                instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\Http_{time}_{Context.Options.Function}");
-              Console.WriteLine("done - scaned all databases");
+                instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\{command}_{time}{function}{bloggId}{year}");
+                Console.WriteLine($"done - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
-        }
-
-        private static void ExecuteAltTagCommand()
-        {
-            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var analys = "alttag";
-            var instance = analysRepository.GetAnalys(analys);
-
-            try
-            {
-                //Kör för varje databas
-                foreach (var db in Context.Settings.Db)
-                {
-                    Context.Settings.DestinationDb = db;
-                    IEnumerable<string> schemas = GetSchema();
-
-                    foreach (var schema in schemas)
-                    {
-
-                        //Ska endast göras för TV
-                        if (!schema.Contains("teknikensvarld_se"))
-                        {
-                            continue;
-                        }
-
-                        Context.Settings.DestinationDb.Schema = schema;
-                        ExecuteAltTag(instance);
-                    }
-                }
-
-                //Skriva ut allt till fil
-                Console.WriteLine("done - changed the recipe links");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-        }
-
-        private static void ExecuteAltTag(ISourceRewrites instance)
-        {
-            instance.Execute(Context, DateTime.Now.ToShortDateString());
-        }
-
-        private static void ExecuteReceptCommand()
-        {
-            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var analys = "aom";
-            var instance = analysRepository.GetAnalys(analys);
-
-            try
-            {
-                //Kör för varje databas
-                foreach (var db in Context.Settings.Db)
-                {
-                    Context.Settings.DestinationDb = db;
-                    IEnumerable<string> schemas = GetSchema();
-
-                    foreach (var schema in schemas)
-                    {
-
-                        //Börjar med att hoppa över blogg
-                        if (!schema.Contains("alltommat_se"))
-                        {
-                            continue;
-                        }
-
-                        Context.Settings.DestinationDb.Schema = schema;
-                        ExecuteRecept(instance);
-                    }
-                }
-
-                //Skriva ut allt till fil
-                Console.WriteLine("done - changed the recipe links");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-        }
-
-        private static void ExecuteRecept(ISourceRewrites instance)
-        {
-            instance.Execute(Context, DateTime.Now.ToShortDateString());
         }
 
         private static void ExecuteHttp(ISourceRewrites instance, string time)
         {
-            switch(Context.Options.Function)
+            switch (Context.Options.Function)
             {
-                case "getdomain":
-                    instance.Execute(Context, time);
-                    break;
                 case "updomain":
                     instance.ExecuteUpdate(Context);
                     break;
-                case "all":
+                default:
                     instance.Execute(Context, time);
                     break;
-
-                default:
-                    break;
             }
         }
 
-        private static void ExecuteBloggCommand()
+        private static void ExecuteCommand(string command, string databaseName)
         {
             var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var analys = "img-src";
-            var instance = analysRepository.GetAnalys(analys);
+            var instance = analysRepository.GetAnalys(command);
 
             try
             {
@@ -223,57 +150,31 @@ namespace WPDatabaseWork
 
                     foreach (var schema in schemas)
                     {
-                        if (!schema.Contains("blogg"))
+                        //Börjar med och kolla om bran är satt annars kolla att den slutar på
+                        if (!String.IsNullOrEmpty(databaseName))
                         {
-                            continue;
+                            if (!schema.StartsWith(databaseName))
+                            {
+                                continue;
+                            }
                         }
 
                         Context.Settings.DestinationDb.Schema = schema;
+                        //Context.Settings.DestinationSite.DestinationAzureBlob = GetAzureBlob();
+                        //Context.Settings.DestinationSite.DestinationAzureBlobKey = GetAzureBlobKey();
                         instance.Execute(Context, time);
                     }
                 }
 
-                Console.WriteLine("done - the blogg updated");
+                Console.WriteLine($"done - command: {command} for {databaseName}");
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
         }
-        private static void ExecuteCarolinesCommand()
-        {
-            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var analys = "img-car";
-            var instance = analysRepository.GetAnalys(analys);
 
-            try
-            {
-                //Kör för varje databas
-                foreach (var db in Context.Settings.Db)
-                {
-                    var time = $"_{db.Host}_" + DateTime.Now.ToString("yyyyMMddHHmmss");
-                    Context.Settings.DestinationDb = db;
-                    IEnumerable<string> schemas = GetSchema();
 
-                    foreach (var schema in schemas)
-                    {
-                        if (!schema.Contains("blogg_damernasvarld"))
-                        {
-                            continue;
-                        }
-
-                        Context.Settings.DestinationDb.Schema = schema;
-                        instance.Execute(Context, time);
-                    }
-                }
-
-                Console.WriteLine("done - the blogg updated");
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
-            }
-        }
         #endregion
 
 
@@ -283,7 +184,10 @@ namespace WPDatabaseWork
             {
                 { "preview", "false" },
                 { "function", null },
-                { "brand", null }
+                { "brand", null },
+                { "bloggid", null },
+                { "year", null },
+                { "updateurlfromimageid", "false" }
             };
 
             var builder = new ConfigurationBuilder();
@@ -350,6 +254,37 @@ namespace WPDatabaseWork
                     return client.GetSchema(connection);
                 }
             }
+        }
+        private static string GetAzureBlobKey()
+        {
+            var clientFactory = Context.ServiceProvider.GetService<IWPClientFactory>();
+
+            WPClient.View.Options azureBlobKey = new WPClient.View.Options();
+            using (var client = clientFactory.CreateClient(Context.Settings.DestinationBuildConnectionString()))
+            {
+                using (var connection = client.CreateConnection())
+                {
+                    client.GetTableSchema(connection, Context.Settings.DestinationDb.Schema);
+                    azureBlobKey = client.GetOptionSetting(connection, "azure_storage_account_primary_access_key");
+                }
+            }
+            return azureBlobKey.OptionValue;
+        }
+
+        private static string GetAzureBlob()
+        {
+            var clientFactory = Context.ServiceProvider.GetService<IWPClientFactory>();
+
+            WPClient.View.Options azureBlob = new WPClient.View.Options();
+            using (var client = clientFactory.CreateClient(Context.Settings.DestinationBuildConnectionString()))
+            {
+                using (var connection = client.CreateConnection())
+                {
+                    client.GetTableSchema(connection, Context.Settings.DestinationDb.Schema);
+                    azureBlob = client.GetOptionSetting(connection, "azure_storage_account_name");
+                }
+            }
+            return azureBlob.OptionValue;
         }
     }
 }
