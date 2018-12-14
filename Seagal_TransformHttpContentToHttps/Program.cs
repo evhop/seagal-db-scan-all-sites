@@ -32,7 +32,8 @@ namespace WPDatabaseWork
             { "-b", "brand" },
             { "-i", "bloggid" },
             { "-y", "year" },
-            { "-u", "updateurlfromimageid" }
+            { "-u", "updateurlfromimageid" },
+            { "-d", "database" }
         };
         #endregion
 
@@ -80,14 +81,21 @@ namespace WPDatabaseWork
         {
             try
             {
+                Console.WriteLine($"start - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
+                var time = Context.Options.Brand + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+
                 //Kör för varje databas
                 foreach (var db in Context.Settings.Db)
                 {
+                    if (!String.IsNullOrEmpty(Context.Options.Database))
+                    {
+                        if (db.Host != Context.Options.Database)
+                        {
+                            continue;
+                        }
+                    }
                     var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
                     var instance = analysRepository.GetAnalys(command);
-
-                    Console.WriteLine($"start - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
-                    var time = Context.Options.Brand + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
                     Context.Settings.DestinationDb = db;
                     IEnumerable<string> schemas = GetSchema();
@@ -113,9 +121,8 @@ namespace WPDatabaseWork
 
                     //Skriva ut allt till fil
                     instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\{command}_{time}{function}{bloggId}{year}");
-                    Console.WriteLine($"done - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
                 }
-                Console.WriteLine($"done - {command}");
+                Console.WriteLine($"done - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
             }
             catch (Exception e)
             {
@@ -189,7 +196,8 @@ namespace WPDatabaseWork
                 { "brand", null },
                 { "bloggid", null },
                 { "year", null },
-                { "updateurlfromimageid", "false" }
+                { "updateurlfromimageid", "false" },
+                { "database", null }
             };
 
             var builder = new ConfigurationBuilder();

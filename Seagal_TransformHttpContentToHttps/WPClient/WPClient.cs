@@ -345,7 +345,7 @@ namespace WPDatabaseWork.WPClient
         public void UpdatePosts(IConnection connection, string replaceFrom, string replaceTo)
         {
             var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection());
-
+            command.CommandTimeout = 3600;
             foreach (var postTable in PostsTables)
             {
                 var count = CountPosts(connection, postTable, replaceFrom);
@@ -602,6 +602,7 @@ namespace WPDatabaseWork.WPClient
             sql.Append($"SELECT COUNT(*) FROM {postTable} where post_content like '%{searchValue}%';");
 
             var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
+            command.CommandTimeout = 3600;
             return (long)command.ExecuteScalar();
         }
 
