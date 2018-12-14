@@ -22,13 +22,13 @@
       "port": 3306,
       "user": "staging@bt-wp-staging-db001",
       "password": "r)}o4+BiCOvRS.2E"
-    },*/
+    },
     {
       "host": "bt-wp-prod-db002.mysql.database.azure.com",
       "port": 3306,
       "user": "btdmtech@bt-wp-prod-db002",
       "password": "Px?AYDd@3yB=a9K9"
-    },
+    },*/
     {
       "host": "bt-wp-prod-db003.mysql.database.azure.com",
       "port": 3306,

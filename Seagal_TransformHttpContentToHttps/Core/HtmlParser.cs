@@ -7,6 +7,9 @@ using WPDatabaseWork.WPClient.Model;
 using Microsoft.Extensions.DependencyInjection;
 using WPDatabaseWork.Model;
 using WPDatabaseWork.Analys;
+using System.IO;
+using WPDatabaseWork.View;
+using System.Drawing;
 
 namespace WPDatabaseWork.Core
 {
@@ -15,18 +18,26 @@ namespace WPDatabaseWork.Core
         private static Regex _imgRegex = new Regex($"<img[^>]+>", RegexOptions.Compiled);
         private static Regex _aRegex = new Regex($"<\\s*a[^>]*>(.*?)<\\s*\\/\\s*a>", RegexOptions.Compiled);
         private static Regex _hrefRegex = new Regex($"href=\"([^\"]+)\"", RegexOptions.Compiled);
-        private static Regex _idRegex = new Regex($"wp-image-([0-9]+)", RegexOptions.Compiled);
         private static Regex _srcRegex = new Regex($"src=\"([^\"]+)\"", RegexOptions.Compiled);
+        private static Regex _idRegex = new Regex($"wp-image-([0-9]+)", RegexOptions.Compiled);
         private static Regex _altRegex = new Regex($"alt=\"([^\"]+)\"", RegexOptions.Compiled);
+        private static Regex _widthRegex = new Regex($"width=\"([0-9]+)\"", RegexOptions.Compiled);
+        private static Regex _heightRegex = new Regex($"height=\"([0-9]+)\"", RegexOptions.Compiled);
+        private static Regex _sizeRegex = new Regex($"-([0-9]+)x([0-9]+)", RegexOptions.Compiled);
         private IContext _context;
         private List<Post> _attachments = new List<Post>();
         private List<Meta> _attachmentMetas = new List<Meta>();
 
-        public HtmlParser (IContext context)
+        public List<Post> _updateParentIds { get; set; }
+
+        public HtmlParser (IContext context, bool getAttachment = true)
         {
             _context = context;
-            _attachments = GetAttachments();
-            _attachmentMetas = GetAttachedFiles();
+            if (getAttachment)
+            {
+                _attachments = GetAttachments();
+                _attachmentMetas = GetAttachedFiles();
+            }
         }
 
         public List<Post> AltTagTV(Post post)
@@ -199,6 +210,95 @@ namespace WPDatabaseWork.Core
             return replaceContents;
         }
 
+        public List<Attachment> ImagesTailsweep(Post post)
+        {
+            List<Attachment> replaceContents = new List<Attachment>();
+             _updateParentIds = new List<Post>();
+            try
+            {
+                //kollar först om det finns a element
+                var elements = _imgRegex.Matches(post.Content).ToList();
+                foreach (var element in elements)
+                {
+                    if (element.Value.Contains("tsbassetsprod"))
+                    {
+                        var srcMatch = _srcRegex.Match(element.ToString());
+                        if (srcMatch.Captures.Count > 0)
+                        {
+                            string oldSrc = srcMatch.Groups[1].Value;
+                            if (_attachments.Exists(x => x.Content == oldSrc))
+                            {
+                                var updatePost = _attachments.Find(x => x.Content == oldSrc);
+                                //Ändra bara om det inte finns en parent
+                                if (updatePost.ParentId == 0)
+                                {
+                                    updatePost.ParentId = post.Id;
+                                    _updateParentIds.Add(updatePost);
+                                }
+                                else
+                                {
+                                    //Kolla om jag kommer hit
+                                }
+                            }
+                            else
+                            {
+                                string title = GetValue(element, _altRegex);
+                                string name = Sanitice(title);
+
+                                var blobFileName = oldSrc.Substring(oldSrc.LastIndexOf('/') + 1);
+                                var blobFilePath = oldSrc.Replace("https://tsbassetsprod.blob.core.windows.net/010/", "");
+
+                                if (String.IsNullOrEmpty(title))
+                                {
+                                    title = blobFileName.Remove(blobFileName.LastIndexOf('.')).Replace('_', ' ');
+                                    name = Sanitice(title);
+                                }
+                                var newPost = new Attachment
+                                {
+                                    Author = 1,
+                                    Content = "",
+                                    Date = DateTime.Parse(post.Date),
+                                    DateGMT = DateTime.Parse(post.Date),
+                                    Title = title,
+                                    Name = name,
+                                    Guid = oldSrc,
+                                    ParentId = post.Id,
+                                    MimeType = GetMimeType(oldSrc)
+                                };
+
+                                //Skapar postmeta
+                                newPost.Metas = GetImageMetaData(newPost, blobFileName, blobFilePath);
+
+                                //Lägg bara till posten om det går att läsa filen
+                                if (newPost.Metas != null)
+                                {
+                                    replaceContents.Add(newPost);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error ConvertToHtml " + e);
+            }
+
+            return replaceContents;
+        }
+
+        private static string GetValue(Match element, Regex regex)
+        {
+            string value = "";
+            var match = regex.Match(element.ToString());
+            if (match.Captures.Count > 0)
+            {
+                value = match.Groups[1].Value;
+            }
+
+            return value;
+        }
+
         private List<Post> GetAttachments()
         {
             var clientFactory = _context.ServiceProvider.GetService<IWPClientFactory>();
@@ -273,8 +373,138 @@ namespace WPDatabaseWork.Core
 
         private string Sanitice(string name)
         {
-            return name.ToLower().Replace("+", "").Replace(' ', '_').Replace('å', 'a').Replace('ä', 'a').Replace('ö', 'o').Replace("?", "").Replace("!", "");
+            return name.ToLower().Replace("+", "_").Replace(' ', '_').Replace('å', 'a').Replace('ä', 'a').Replace('ö', 'o').Replace("?", "").Replace("!", "").Replace(".", "");
         }
 
+        #region HelpImages
+        private List<Meta> GetImageMetaData(Attachment attachment, string blobFileName, string blobFilePath)
+        {
+            List<Meta> postMetas = new List<Meta>();
+
+            //WindowStorage
+            List<string> blobThumbnails = new List<string>();
+            PostMetaWindowStorage windowStorage = new PostMetaWindowStorage
+            {
+                blob = blobFilePath,
+                url = attachment.Guid,
+                container = "010",
+                thumbnails = blobThumbnails
+            };
+            Meta postMeta = new Meta
+            {
+                SchemaTable = "blogg_tailsweep_se.wp_10_postmeta",
+                MetaKey = "windows_azure_storage_info",
+                MetaValue = SerializerHelpers.SerializeToString(windowStorage)
+            };
+            postMetas.Add(postMeta);
+
+            postMeta = new Meta
+            {
+                //wp_attached_file
+                SchemaTable = "blogg_tailsweep_se.wp_10_postmeta",
+                MetaKey = "_wp_attached_file",
+                MetaValue = blobFilePath
+            };
+            postMetas.Add(postMeta);
+
+            //_wp_attachment_metadata
+            PostAttachmentImageMeta postAttachmentImageMeta = new PostAttachmentImageMeta
+            {
+                aperture = "",
+                title = "",
+                camera = "",
+                caption = "",
+                copyright = "",
+                credit = "",
+                created_timestamp = "",
+                focal_length = "",
+                iso = "",
+                shutter_speed = "",
+                orientation = "",
+                keywords = new List<string>()
+            };
+
+            List<PostAttachmentSize> postAttachmentSizes = new List<PostAttachmentSize>();
+
+            PostAttachment postAttachment = new PostAttachment
+            {
+                file = blobFilePath,
+                sizes = postAttachmentSizes,
+                image_meta = postAttachmentImageMeta,
+            };
+
+            try
+            {
+                var inputPath = @"C:\Users\evhop\Documents\TestImportBlogg\monasuniversum\" + blobFilePath;
+                using (var image = new Bitmap(Image.FromFile(inputPath)))
+                {
+                    postAttachment.width = image.Width;
+                    postAttachment.height = image.Height;
+                }
+            }
+            catch (OutOfMemoryException e)
+            {
+                Console.WriteLine("Error OutOfMemory " + e);
+                return null;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error GetImageSizes " + e);
+                return null;
+            }
+
+            postMeta = new Meta
+            {
+                //wp_attached_file
+                SchemaTable = "blogg_tailsweep_se.wp_10_postmeta",
+                MetaKey = "_wp_attachment_metadata",
+                MetaValue = SerializerHelpers.SerializeToString(postAttachment).Replace("image_meta", "image-meta")
+            };
+            postMetas.Add(postMeta);
+
+            return postMetas;
+        }
+
+        private string GetMimeType(string guid)
+        {
+            string defaultMimeType = "image/jpeg";
+            string ext = "";
+            try
+            {
+                ext = Path.GetExtension(guid).TrimStart('.');
+            }
+            catch (Exception e)
+            {
+                return defaultMimeType;
+            }
+
+            string mimeType = ImageExtension(ext) ? "image/" + ext : AudioExtension(ext) ? "audio/" + ext : VideoExtension(ext) ? "video/" + ext : DocumentExtension(ext) ? "application/" + ext : defaultMimeType;
+            return mimeType;
+        }
+
+        private bool ImageExtension(string ext)
+        {
+            string[] images = { "png", "ico", "tiff", "tif", "psd", "gif", "bmp" };
+            return images.Contains(ext);
+        }
+
+        private bool AudioExtension(string ext)
+        {
+            string[] audios = { "mp3", "wav" };
+            return audios.Contains(ext);
+        }
+
+        private bool VideoExtension(string ext)
+        {
+            string[] videos = { "mov", "mp4", "3gp", "3gpp", "swf" };
+            return videos.Contains(ext);
+        }
+
+        private bool DocumentExtension(string ext)
+        {
+            string[] docs = { "doc", "docx", "pdf", "xlsx", "txt", "html", "zip" };
+            return docs.Contains(ext);
+        }
+        #endregion
     }
 }

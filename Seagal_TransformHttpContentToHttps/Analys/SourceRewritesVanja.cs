@@ -21,7 +21,6 @@ namespace WPDatabaseWork.Analys
         private static Regex ImageRegex = new Regex($"/[0-9]+[\\-0-9]+?[\\.a-zA-Z]+", RegexOptions.Compiled);
         private static Regex UrlRegex = new Regex("<img\\s+[^>]*?src=\"([^\"\\r\\n<>]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private List<HttpLink> _httpAnalysList;
-        private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
         private List<Post> _replaceContents;
         

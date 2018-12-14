@@ -17,7 +17,8 @@ namespace WPDatabaseWork.Analys
     public class FindHref404 : ISourceRewrites
     {
         public string Name => "href404";
-        private static Regex HrefUrlHttpRegex = new Regex($"href=[\"]((https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.])([\\/\\w \\.-]*)*\\/?)", RegexOptions.Compiled);
+        private static Regex HrefUrlHttpRegex = new Regex($"[^?]href\\s*=\\s*(?:[\"'](?<1>[^\"']*)[\"']|(?<1>\\S+))", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+//        private static Regex HrefUrlHttpRegex = new Regex($"href=[\"]((https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.])([\\/\\w \\.-]*)*\\/?)", RegexOptions.Compiled);
         private static Regex DomainHttpRegex = new Regex($"href=[\"](http(s)?://[^/\"]+)", RegexOptions.Compiled);
 
         private List<HttpLink> _analysList;
@@ -86,7 +87,7 @@ namespace WPDatabaseWork.Analys
                             //Bearbetar endast ett visst år om det är angivet 
                             if (_context.Options.Year != "")
                             {
-                                _postContents = _postContents.Where(x => x.Date.Contains(_context.Options.Year) && x.Id== 344902).ToList();
+                                _postContents = _postContents.Where(x => x.Date.Contains(_context.Options.Year)).ToList();
                             }
                         }
                         catch (Exception e)
@@ -146,22 +147,26 @@ namespace WPDatabaseWork.Analys
                 bool urlMatchesExists = newMatches.Exists(m => m.Groups[urlGroup].Value == sourceUrl);
 
                 //Endast validera urlen om den inte redan finns i listan
-                if (!urlAnalysExists || !urlMatchesExists)
-                {
-                    newMatches.Add(match);
-                }
-                else if (urlMatchesExists)
+                if (!urlAnalysExists && !urlMatchesExists)
                 {
                     newMatches.Add(match);
                 }
                 else if (urlAnalysExists)
                 {
-                    HttpLink httpLink = _analysList.Find(x => x.HttpSource == sourceUrl);
-                    httpLink.Id = post.Id;
-                    httpLink.Guid = post.Guid;
-                    httpLink.Date = post.Date;
-                    httpLink.SchemaTable = post.SchemaTable;
-                    _analysList.Add(httpLink);
+                    if (!_analysList.Exists(x => x.Id == post.Id && x.HttpSource == sourceUrl))
+                    {
+                        HttpLink httpLink = new HttpLink
+                        {
+                            HttpSource = _analysList.Find(x => x.HttpSource == sourceUrl).HttpSource,
+                            HttpsSource = _analysList.Find(x => x.HttpSource == sourceUrl).HttpsSource,
+                            Succeded = _analysList.Find(x => x.HttpSource == sourceUrl).Succeded,
+                            Id = post.Id,
+                            Guid = post.Guid,
+                            Date = post.Date,
+                            SchemaTable = post.SchemaTable
+                        };
+                        _analysList.Add(httpLink);
+                    }
                 }
             }
 

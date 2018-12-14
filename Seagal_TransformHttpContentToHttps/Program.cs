@@ -60,13 +60,13 @@ namespace WPDatabaseWork
                 case "vanja":
                     ExecuteCommand(command, "blogg_mama");
                     break;
-                case "src404":
-                    ExecuteHttpCommand(command);
+                case "restoreMedia":
+                    ExecuteCommand(command, "blogg_tailsweep");
                     break;
                 //href404 -b="alltommat_se" -y=""
+                case "src404":
                 case "href404":
-                    ExecuteHttpCommand(command);
-                    break;
+                case "srcBMB":
                 case "http":
                     ExecuteHttpCommand(command);
                     break;
@@ -78,16 +78,17 @@ namespace WPDatabaseWork
 
         private static void ExecuteHttpCommand(string command)
         {
-            var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
-            var instance = analysRepository.GetAnalys(command);
-
-            Console.WriteLine($"start - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
-            var time = Context.Options.Brand + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
             try
             {
                 //Kör för varje databas
                 foreach (var db in Context.Settings.Db)
                 {
+                    var analysRepository = ServiceLocator.ServiceProvider.GetService<IAnalysRepository>();
+                    var instance = analysRepository.GetAnalys(command);
+
+                    Console.WriteLine($"start - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
+                    var time = Context.Options.Brand + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
+
                     Context.Settings.DestinationDb = db;
                     IEnumerable<string> schemas = GetSchema();
 
@@ -102,18 +103,19 @@ namespace WPDatabaseWork
                             }
                         }
 
+                        Console.WriteLine($"start - {schema}");
                         Context.Settings.DestinationDb.Schema = schema;
                         ExecuteHttp(instance, time);
                     }
+                    string function = Context.Options.Function == "" ? "" : $"_{Context.Options.Function}";
+                    string bloggId = Context.Options.BloggId == "" ? "" : $"_{Context.Options.BloggId}";
+                    string year = Context.Options.Year == "" ? "" : $"_{Context.Options.Year}";
+
+                    //Skriva ut allt till fil
+                    instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\{command}_{time}{function}{bloggId}{year}");
+                    Console.WriteLine($"done - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
                 }
-
-                string function = Context.Options.Function == "" ? "" : $"_{Context.Options.Function}";
-                string bloggId = Context.Options.BloggId == "" ? "" : $"_{Context.Options.BloggId}";
-                string year = Context.Options.Year == "" ? "" : $"_{Context.Options.Year}";
-
-                //Skriva ut allt till fil
-                instance.WriteUrlToFile($@"C:\Users\evhop\Dokument\dumps\{command}_{time}{function}{bloggId}{year}");
-                Console.WriteLine($"done - {command} for {Context.Options.Brand}.{Context.Options.BloggId} and year {Context.Options.Year}");
+                Console.WriteLine($"done - {command}");
             }
             catch (Exception e)
             {

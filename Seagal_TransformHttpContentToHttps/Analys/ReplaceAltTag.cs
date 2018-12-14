@@ -24,7 +24,6 @@ namespace WPDatabaseWork.Analys
         public string Name => "alttag";
         private static Regex AltTagRegex = new Regex($"alt=\"\"", RegexOptions.Compiled);
         private List<HttpLink> _httpAnalysList;
-        private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
         private List<ulong> _ImageNotExistsId;
         private List<Post> _replaceContents;

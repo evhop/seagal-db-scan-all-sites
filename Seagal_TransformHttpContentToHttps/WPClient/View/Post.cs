@@ -8,6 +8,7 @@ namespace WPDatabaseWork.WPClient.View
         public string SchemaTable { get; set; }
         public ulong Id { get; set; }
         public string Date { get; set; }
+        public ulong ParentId { get; set; }
         public string Content { get; set; }
         public string OldContent { get; set; }
         public string Guid { get; set; }

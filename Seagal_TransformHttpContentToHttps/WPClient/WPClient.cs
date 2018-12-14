@@ -183,6 +183,79 @@ namespace WPDatabaseWork.WPClient
 
         #region IPostRepository
 
+        public void InsertPosts(IConnection connection, IEnumerable<Attachment> posts)
+        {
+            var remaining = posts;
+            while (remaining.Any())
+            {
+                using (var command = new MySqlCommand(string.Empty, connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 600
+                })
+                {
+                    var sql = new StringBuilder($@"INSERT INTO {PostsTable} (post_author, post_date, post_date_gmt, post_content, post_title, post_excerpt, post_status, comment_status, ping_status, post_password, post_name, to_ping, pinged, post_modified, post_modified_gmt, post_content_filtered, post_parent, guid, menu_order, post_type, post_mime_type, comment_count) VALUES ");
+
+                    var toUpdate = remaining;
+                    ulong skip = 0;
+                    string defaultTime = "0001-01-01 00:00:00";
+                    foreach (var post in toUpdate)
+                    {
+                        var sqlStatement = $@"({post.Author},
+                        '{MySqlHelper.EscapeString(post.Date.ToString("yyyy-MM-dd HH:mm:ss"))}',
+                        '{MySqlHelper.EscapeString(post.DateGMT.ToString("yyyy-MM-dd HH:mm:ss"))}',
+                        '{MySqlHelper.EscapeString(post.Content ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(post.Title ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(string.Empty)}',
+                        '{MySqlHelper.EscapeString(post.Status ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(post.CommentStatus ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(post.PingStatus ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(string.Empty)}',
+                        '{MySqlHelper.EscapeString(post.Name ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(string.Empty)}',
+                        '{MySqlHelper.EscapeString(string.Empty)}',
+                        '{MySqlHelper.EscapeString(defaultTime)}',
+                        '{MySqlHelper.EscapeString(defaultTime)}',
+                        '{MySqlHelper.EscapeString(string.Empty)}',
+                        {post.ParentId},
+                        '{MySqlHelper.EscapeString(post.Guid ?? string.Empty)}',
+                        {0},
+                        '{MySqlHelper.EscapeString(post.Type ?? string.Empty)}',
+                        '{MySqlHelper.EscapeString(post.MimeType ?? string.Empty)}',
+                        {0})";
+
+                        if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
+                        {
+                            break;
+                        }
+
+                        if (skip > 0)
+                        {
+                            sql.Append(", ");
+                        }
+
+                        sql.Append(sqlStatement);
+                        skip++;
+                    }
+
+                    sql.Append(";");
+                    sql.Append("SELECT LAST_INSERT_ID();");
+
+                    command.CommandText = sql.ToString();
+                    var id = (ulong)command.ExecuteScalar();
+
+                    ulong index = id;
+                    foreach (var page in toUpdate.Take((int)skip))
+                    {
+                        page.Id = index++;
+                        page.Metas.ForEach(x => x.PostId = page.Id);
+                        InsertPostMetas(connection, page.Metas);
+                    }
+
+                    remaining = remaining.Skip((int)skip);
+                }
+            }
+        }
+
         public void UpdatePosts(IConnection connection, IEnumerable<Post> posts, string colum)
         {
             var command = new MySqlCommand("", connection.GetMySqlConnection())
@@ -201,6 +274,40 @@ namespace WPDatabaseWork.WPClient
                 {
                     var escapedContent = MySqlHelper.EscapeString(content.Content);
                     var sqlStatement = $"UPDATE {content.SchemaTable} SET {colum} = '{escapedContent}' WHERE ID = {content.Id};";
+
+                    if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
+                    {
+                        break;
+                    }
+
+                    skip++;
+                    sql.Append(sqlStatement);
+                }
+
+                command.CommandText = sql.ToString();
+                command.ExecuteNonQuery();
+
+                remaining = remaining.Skip(skip);
+            }
+        }
+
+        public void UpdateParentIds(IConnection connection, IEnumerable<Post> posts)
+        {
+            var command = new MySqlCommand("", connection.GetMySqlConnection())
+            {
+                CommandTimeout = 3600
+            };
+
+            var remaining = posts;
+            while (remaining.Any())
+            {
+                var sql = new StringBuilder();
+
+                var toUpdate = remaining;
+                var skip = 0;
+                foreach (var content in toUpdate)
+                {
+                    var sqlStatement = $"UPDATE {content.SchemaTable} SET post_parent = {content.ParentId} WHERE ID = {content.Id};";
 
                     if ((sqlStatement.Length + sql.Length) >= MaxAllowedPacket)
                     {
@@ -241,13 +348,18 @@ namespace WPDatabaseWork.WPClient
 
             foreach (var postTable in PostsTables)
             {
-                var sql = new StringBuilder();
-                sql.Append($"UPDATE {postTable} SET post_content = replace(post_content, '{replaceFrom}', '{replaceTo}') WHERE post_content like '%{replaceFrom}%';");
-                sql.Append($"UPDATE {postTable} SET post_excerpt = replace(post_excerpt, '{replaceFrom}', '{replaceTo}') WHERE post_excerpt like '%{replaceFrom}%';");
-                sql.Append($"UPDATE {postTable} SET post_content_filtered = replace(post_content_filtered, '{replaceFrom}', '{replaceTo}') WHERE post_content_filtered like '%{replaceFrom}%';");
+                var count = CountPosts(connection, postTable, replaceFrom);
+                if (count > 0)
+                {
+                    Console.WriteLine($"Updates {count} for {postTable} urlsrc='{replaceFrom}'");
+                    var sql = new StringBuilder();
+                    sql.Append($"UPDATE {postTable} SET post_content = replace(post_content, '{replaceFrom}', '{replaceTo}') WHERE post_content like '%{replaceFrom}%';");
+                    sql.Append($"UPDATE {postTable} SET post_excerpt = replace(post_excerpt, '{replaceFrom}', '{replaceTo}') WHERE post_excerpt like '%{replaceFrom}%';");
+                    sql.Append($"UPDATE {postTable} SET post_content_filtered = replace(post_content_filtered, '{replaceFrom}', '{replaceTo}') WHERE post_content_filtered like '%{replaceFrom}%';");
 
-                command.CommandText = sql.ToString();
-                command.ExecuteNonQuery();
+                    command.CommandText = sql.ToString();
+                    command.ExecuteNonQuery();
+                }
             }
         }
 
@@ -353,6 +465,44 @@ namespace WPDatabaseWork.WPClient
             return posts;
         }
 
+        public IEnumerable<Post> GetPostsWithImagesAndNoAttachments(IConnection connection, string likeSearch)
+        {
+            var posts = new List<Post>();
+            foreach (var postsTable in PostsTables)
+            {
+                var sql = new StringBuilder();
+                sql.Append($"SELECT post.ID, post.post_content, post.post_date, post.guid FROM {postsTable} post " +
+                            $" left join {postsTable} attachment on post.id = attachment.post_parent and attachment.post_type = 'attachment'" +
+                            $" where post.post_content like '{likeSearch}'" +
+                            $" and post.post_type='post' and post.post_status not in ('trash') and post.post_type='post'" +
+                            $" and attachment.id is null;");
+
+
+
+                var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection())
+                {
+                    CommandTimeout = 3600
+                };
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        posts.Add(new Post
+                        {
+                            SchemaTable = postsTable,
+                            Id = reader.GetUInt64("ID"),
+                            Content = reader.GetString("post_content"),
+                            Date = reader.GetDateTime("post_date").ToShortDateString(),
+                            OldContent = reader.GetString("post_content"),
+                            Guid = reader.GetString("guid")
+                        });
+                    }
+                }
+            }
+            return posts;
+
+        }
+ 
         public IEnumerable<Post> GetPosts(IConnection connection, string colum, string likeSearch, int limit)
         {
             var posts = new List<Post>();
@@ -444,6 +594,15 @@ namespace WPDatabaseWork.WPClient
                 }
             }
             return posts;
+        }
+
+        public long CountPosts(IConnection connection, string postTable, string searchValue)
+        {
+            var sql = new StringBuilder();
+            sql.Append($"SELECT COUNT(*) FROM {postTable} where post_content like '%{searchValue}%';");
+
+            var command = new MySqlCommand(sql.ToString(), connection.GetMySqlConnection());
+            return (long)command.ExecuteScalar();
         }
 
         #endregion

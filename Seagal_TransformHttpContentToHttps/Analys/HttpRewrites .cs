@@ -32,7 +32,6 @@ namespace WPDatabaseWork.Analys
         private static Regex SrcUrlHttpRegex = new Regex($"src=[\"']((http://[^/]+)?(/(?!/)[^\"']+))", RegexOptions.Compiled);
         private static Regex DomainHttpRegex = new Regex($"src=[\"](http://[^/\"]+)", RegexOptions.Compiled);
         private List<HttpLink> _httpAnalysList;
-        private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
         private IEnumerable<Post> _postExcerpts;
         private IEnumerable<Post> _postContentFiltereds;

@@ -2,7 +2,7 @@
   "profiles": {
     "WPDatabaseWork": {
       "commandName": "Project",
-      "commandLineArgs": "href404 -b=\"alltommat_se\" -y=\"\""
+      "commandLineArgs": "srcBMB -f=\"updomain\""
     }
   }
 }

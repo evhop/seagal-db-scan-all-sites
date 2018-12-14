@@ -7,7 +7,6 @@ namespace WPDatabaseWork.Core
 {
     public static class SerializerHelpers
     {
-        /*
         public static string SerializeToString(object o)
         {
             using (var stream = new MemoryStream())
@@ -17,6 +16,5 @@ namespace WPDatabaseWork.Core
                 return Encoding.UTF8.GetString(stream.ToArray());
             }
         }
-        */
     }
 }

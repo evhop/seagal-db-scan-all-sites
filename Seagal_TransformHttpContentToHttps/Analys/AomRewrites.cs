@@ -14,7 +14,6 @@ namespace WPDatabaseWork.Analys
     {
         public string Name => "aom";
         private static Regex SrcRecipeidRegex = new Regex($"recipeid=", RegexOptions.Compiled);
-        private Serializer _serializer = new Serializer();
         private IEnumerable<Post> _postContents;
         private IEnumerable<Post> _postRecipeLinks;
 

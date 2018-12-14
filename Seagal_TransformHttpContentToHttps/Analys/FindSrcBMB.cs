@@ -14,9 +14,9 @@ using System.Threading.Tasks;
 
 namespace WPDatabaseWork.Analys
 {
-    public class FindSrc404 : ISourceRewrites
+    public class FindSrcBMB : ISourceRewrites
     {
-        public string Name => "src404";
+        public string Name => "srcBMB";
         private static Regex SrcUrlHttpRegex = new Regex($"src=[\"']((http(s)?://[^/]+)?(/(?!/)[^\"']+))", RegexOptions.Compiled);
         private static Regex DomainHttpRegex = new Regex($"src=[\"](http(s)?://[^/\"]+)", RegexOptions.Compiled);
 
@@ -25,20 +25,26 @@ namespace WPDatabaseWork.Analys
         private IContext _context;
         private HtmlParser _htmlParser;
         private List<Post> _postReplacedContents;
+        private string[] sites = new string[] {  "alltommat",  "alltomtradgard",  "viforaldrar",  "veckorevyn",
+                                    "topphalsa",  "tidningenhembakat",  "teknikensvarld",  "tara",
+                                    "styleby",  "skonahem",  "m-magasin",  "mama",  "lantliv",
+                                    "kpwebben",  "godsochgardar",  "gardochtorp",  "dvmode.",
+                                    "damernasvarld",  "amelia", 
+                                    "alltihemmet",  "hemochantik",  "familyliving",  "bontravel",
+                                    "grid-cms.bonnierdigitalservices"};
 
-
-        public FindSrc404(ILoggerFactory loggerFactory)
+        public FindSrcBMB(ILoggerFactory loggerFactory)
             : this(loggerFactory.CreateLogger<SourceRewrites>())
         {
             _analysList = new List<HttpLink>();
         }
 
-        public FindSrc404(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        public FindSrcBMB(ILogger logger) => Logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         private ILogger Logger { get; }
 
         #region Execute
-        //Fixa länkar där det finns en https domän, de finns i appsettings under rewriteUrlToHttps
+        //Fixa till bildlänkar så att de går mot blobb för andra BMBsiter
         public void Execute(Context context, string time)
         {
             _context = context;
@@ -51,7 +57,87 @@ namespace WPDatabaseWork.Analys
 
         public void ExecuteUpdate(Context context)
         {
-            throw new NotImplementedException();
+            string[] httpPrefixs = new string[] { "http://", "https://" };
+            string[] wwwPrefixs = new string[] { "", "www." };
+            Dictionary<string, string> bmbSites = new Dictionary<string, string>
+            {
+                { "alltommat.se", "aom"},
+                { "alltomtradgard.se", "aot" },
+                { "viforaldrar.se", "vif" },
+                { "veckorevyn.com", "vr" },
+                { "topphalsa.se", "top" },
+                { "tidningenhembakat.se", "bak"},
+                { "teknikensvarld.se", "tv" },
+                { "tara.se", "t" },
+                { "styleby.nu", "sb" },
+                { "skonahem.com", "skh" },
+                { "m-magasin.se", "mm" },
+                { "mama.nu", "mam" },
+                { "lantliv.com", "ll" },
+                { "kpwebben.se", "kp" },
+                { "godsochgardar.se", "gog" },
+                { "gardochtorp.se", "got" },
+                { "dvmode.se", "dv" },
+                { "damernasvarld.se", "dv" },
+                { "amelia.se", "ame" },
+                { "alltihemmet.se", "aih" },
+                { "hemochantik.se", "hoa" },
+                { "familyliving.se", "fl" },
+                { "bontravel.se", "btr" }
+            };
+
+            _context = context;
+            _postReplacedContents = new List<Post>();
+
+            var clientFactory = _context.ServiceProvider.GetService<IWPClientFactory>();
+            var settings = _context.Settings;
+
+            using (var client = clientFactory.CreateClient(settings.DestinationBuildConnectionString()))
+            {
+                using (var connection = client.CreateConnection())
+                {
+                    if (_context.Options.BloggId != null)
+                    {
+                        client.GetTableSchema(connection, settings.DestinationDb.Schema, _context.Options.BloggId);
+                    }
+                    else
+                    {
+                        client.GetTableSchema(connection, settings.DestinationDb.Schema);
+                    }
+
+                    foreach (var httpPrefix in httpPrefixs)
+                    {
+                        foreach (var wwwPrefix in wwwPrefixs)
+                        {
+                            foreach (var bmbSite in bmbSites)
+                            {
+                                string filePath = httpPrefix + wwwPrefix + bmbSite.Key + "/wp-content/uploads/";
+                                string blobPath = "https://" + bmbSite.Value + "eassetsprod.blob.core.windows.net/editorial/";
+
+                                Console.WriteLine($"Process {filePath}, {DateTime.Now.ToShortTimeString()} ");
+                                using (var transaction = connection.BeginTransaction())
+                                {
+                                    try
+                                    {
+                                        client.UpdatePosts(connection, filePath, blobPath);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.Write(e.Message);
+                                        transaction.Rollback();
+                                        transaction.Dispose();
+                                        throw;
+                                    }
+                                    finally
+                                    {
+                                        transaction.Commit();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         public void ExecuteAllHttpLinks(Context context, string time)
@@ -68,7 +154,7 @@ namespace WPDatabaseWork.Analys
             {
                 using (var connection = client.CreateConnection())
                 {
-                    if (!String.IsNullOrEmpty(_context.Options.BloggId))
+                    if (_context.Options.BloggId != null)
                     {
                         client.GetTableSchema(connection, settings.DestinationDb.Schema, _context.Options.BloggId);
                     }
@@ -89,7 +175,6 @@ namespace WPDatabaseWork.Analys
                             {
                                 _postContents = _postContents.Where(x => x.Date.Contains(_context.Options.Year)).ToList();
                             }
-
                         }
                         catch (Exception e)
                         {
@@ -128,6 +213,7 @@ namespace WPDatabaseWork.Analys
                     Console.WriteLine($"Processed {count} of {_postContents.Count()} posts");
                 }
             }
+            Console.WriteLine($"For {_context.Settings.DestinationDb.Schema}, total {_analysList.Count}");
         }
 
         private async Task GetLinkAsync(Post post, int urlGroup)
@@ -139,125 +225,30 @@ namespace WPDatabaseWork.Analys
                 return;
             }
 
-            List<Match> newMatches = new List<Match>();
-
             foreach (var match in matches.Where(m => m.Success).ToList())
             {
                 string sourceUrl = match.Groups[urlGroup].Value;
 
-                bool urlAnalysExists = _analysList.Exists(m => m.HttpSource == sourceUrl);
-                bool urlMatchesExists = newMatches.Exists(m => m.Groups[urlGroup].Value == sourceUrl);
-
-                //Endast validera urlen om den inte redan finns i listan
-                if (!urlAnalysExists && !urlMatchesExists)
+                //Tar endast med de som innehåller någon av sitenamnen
+                foreach (var site in sites)
                 {
-                    newMatches.Add(match);
-                }
-                else if (urlAnalysExists)
-                {
-                    if (!_analysList.Exists(x => x.Id == post.Id && x.HttpSource == sourceUrl))
+                    if (sourceUrl.Contains(site + ".") && !sourceUrl.Contains("assetsprod.blob") && !sourceUrl.Contains("ppadmin.btdmtech"))
                     {
                         HttpLink httpLink = new HttpLink
                         {
-                            HttpSource = _analysList.Find(x => x.HttpSource == sourceUrl).HttpSource,
-                            HttpsSource = _analysList.Find(x => x.HttpSource == sourceUrl).HttpsSource,
-                            Succeded = _analysList.Find(x => x.HttpSource == sourceUrl).Succeded,
+                            HttpSource = sourceUrl,
+                            HttpsSource = sourceUrl,
+                            Succeded = false,
                             Id = post.Id,
                             Guid = post.Guid,
                             Date = post.Date,
                             SchemaTable = post.SchemaTable
                         };
                         _analysList.Add(httpLink);
+                        break;
                     }
                 }
             }
-            // Kontrollera om urlen finns som https   
-            IEnumerable<Task<HttpLink>> downloadTasksQuery =
-            from match in newMatches
-            where match.Success
-            select ProcessURLAsync(match, post.Id, post.Date, post.SchemaTable, urlGroup, post.Guid);
-
-            // Use ToArray to execute the query and start the download tasks.  
-            Task<HttpLink>[] downloadTasks = downloadTasksQuery.ToArray();
-
-            // Await the completion of all the running tasks.  
-            HttpLink[] httpLinks = await Task.WhenAll(downloadTasks);
-
-            if (_context.Options.UpdateUrlFromImageId)
-            {
-                if (httpLinks.ToList().Exists(x => x.Succeded == false))
-                {
-                    _postReplacedContents.AddRange(_htmlParser.replaceUrl(httpLinks.Where(x => x.Succeded == false).ToList(), post, false));
-                }
-            }
-            _analysList.AddRange(httpLinks.ToList());
-        }
-
-        private async Task<HttpLink> ProcessURLAsync(Match match, ulong id, string date, string schemaTable, int urlGroup, string guid)
-        {
-            var src = match.Groups[urlGroup].Value;
-            var httpLink = new HttpLink
-            {
-                SchemaTable = schemaTable,
-                Id = id,
-                Date = date,
-                HttpSource = match.Groups[urlGroup].Value,
-                Guid = guid
-            };
-
-            try
-            {
-                var request = (HttpWebRequest)WebRequest.Create(src);
-                request.Timeout = 5000;
-                var response = request.GetResponse();
-                //finns som https
-                var responseUri = response.ResponseUri.ToString();
-                if (responseUri == "https://alltommat.se/?page=404")
-                {
-                    httpLink.Succeded = false;
-                }
-                else
-                {
-                    httpLink.HttpsSource = httpLink.HttpSource.Replace(src, responseUri.TrimEnd('/'));
-                    httpLink.Succeded = true;
-                }
-            }
-            catch (WebException we)
-            {
-                try
-                {
-                    var webResponse = we.Response as HttpWebResponse;
-
-                    //finns inte
-                    switch (webResponse.StatusCode)
-                    {
-                        case HttpStatusCode.Ambiguous:
-                        case HttpStatusCode.Found:
-                        case HttpStatusCode.Moved:
-                        case HttpStatusCode.NotModified:
-                        case HttpStatusCode.RedirectKeepVerb:
-                        case HttpStatusCode.RedirectMethod:
-                        case HttpStatusCode.Unused:
-                        case HttpStatusCode.UseProxy:
-                            httpLink.HttpsSource = httpLink.HttpSource.Replace(src, webResponse.ResponseUri.ToString().TrimEnd('/'));
-                            httpLink.Succeded = true;
-                            break;
-                        default:
-                            httpLink.Succeded = false;
-                            break;
-                    }
-                }
-                catch (Exception e)
-                {
-                    httpLink.Succeded = false;
-                }
-            }
-            catch (Exception e)
-            {
-                //finns inte
-                httpLink.Succeded = false;
-            }
-            return httpLink;
         }
 
         #endregion

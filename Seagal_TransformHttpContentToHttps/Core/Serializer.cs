@@ -1,183 +1,144 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace WPDatabaseWork.Core
 {
     internal class Serializer
     {
+        private Stream _stream;
+        private StreamWriter _writer;
 
-        private readonly NumberFormatInfo _nfi;
-        public Encoding StringEncoding = new UTF8Encoding();
-
-        private int _pos;
-        private Dictionary<List<object>, bool> _seenArrayLists;
-        private Dictionary<Dictionary<object, object>, bool> _seenHashtables;
-
-        public Serializer()
+        public Serializer(Stream stream)
         {
-            _nfi = new NumberFormatInfo { NumberGroupSeparator = "", NumberDecimalSeparator = "." };
+            _stream = stream ?? throw new ArgumentNullException(nameof(stream));
+            _writer = new StreamWriter(_stream, new UTF8Encoding(false));
         }
 
-        public string Serialize(object obj)
+        public void Serialize(object value)
         {
-            _seenArrayLists = new Dictionary<List<object>, bool>();
-            _seenHashtables = new Dictionary<Dictionary<object, object>, bool>();
-
-            return serialize(obj, new StringBuilder()).ToString();
+            if (value is IDictionary<object, object> dictionary)
+            {
+                InternalSerializeDictionary(dictionary);
+            }
+            else if (value is IEnumerable enumerable)
+            {
+                InternalSerializeEnumerable(enumerable);
+            }
+            else
+            {
+                InternalSerializeObject(value);
+            }
         }
 
-        private StringBuilder serialize(object obj, StringBuilder sb)
+        private void InternalSerializeObject(object value)
         {
-            if (obj == null) return sb.Append("N;");
-            if (obj is string)
-            {
-                var str = (string)obj;
-                return sb.Append($"s:{StringEncoding.GetByteCount(str)}:\"{str}\";");
-            }
-            if (obj is bool) return sb.Append($"b:{(((bool)obj) ? "1" : "0")};");
-            if (obj is int)
-            {
-                var i = (int)obj;
-                return sb.Append($"i:{i.ToString(_nfi)};");
-            }
-            if (obj is double)
-            {
-                var d = (double)obj;
-                return sb.Append($"d:{d.ToString(_nfi)};");
-            }
-            if (obj is List<object>)
-            {
-                if (_seenArrayLists.ContainsKey((List<object>)obj))
-                    return sb.Append("N;");
-                _seenArrayLists.Add((List<object>)obj, true);
+            var type = value.GetType();
+            var typeInfo = type.GetTypeInfo();
 
-                var a = (List<object>)obj;
-                sb.Append("a:" + a.Count + ":{");
-                for (int i = 0; i < a.Count; i++)
-                {
-                    serialize(i, sb);
-                    serialize(a[i], sb);
-                }
-                sb.Append("}");
-                return sb;
-            }
-            if (obj is Dictionary<object, object>)
-            {
-                if (_seenHashtables.ContainsKey((Dictionary<object, object>)obj))
-                    return sb.Append("N;");
-                _seenHashtables.Add((Dictionary<object, object>)obj, true);
+            var properties = typeInfo.GetProperties();
 
-                var a = (Dictionary<object, object>)obj;
-                sb.Append("a:" + a.Count + ":{");
-                foreach (var entry in a)
-                {
-                    serialize(entry.Key, sb);
-                    serialize(entry.Value, sb);
-                }
-                sb.Append("}");
-                return sb;
+            Write($"a:{properties.Count()}:{{");
+            foreach (var property in properties)
+            {
+                var propertyName = property.Name;
+                var propertyValue = property.GetValue(value);
+
+                WriteSingle(propertyName);
+                WriteSingle(propertyValue);
             }
-            return sb;
+            Write("}");
         }
 
-        public object Deserialize(string str)
+        private void InternalSerializeEnumerable(IEnumerable enumerable)
         {
-            _pos = 0;
-            return deserialize(str);
+            var enumerableCount = enumerable
+                .Cast<object>()
+                .Count();
+
+            Write($"a:{enumerableCount}:{{");
+            var index = 0;
+            foreach (var o in enumerable)
+            {
+                WriteSingle(index);
+                WriteSingle(o);
+                index++;
+            }
+            Write("}");
         }
 
-        private object deserialize(string str)
+        private void InternalSerializeDictionary(IDictionary<object, object> dictionary)
         {
-            if (str == null || str.Length <= 0)
+            Write($"a:{dictionary.Count}:{{");
+            foreach (var o in dictionary.Keys)
             {
-                return new Object();
+                var value = dictionary[o];
+                WriteSingle(o);
+                WriteSingle(value);
             }
+            Write("}");
+        }
 
-            int start, end, lenght;
-            string strLen;
-
-            switch (str[_pos])
+        private void WriteSingle(object value)
+        {
+            if (value is int iValue)
             {
-                case 'N':
-                    _pos += 2;
-                    return null;
-                case 'b':
-                    char chBool = str[_pos + 2];
-                    _pos += 4;
-                    return chBool == '1';
-                case 'i':
-                    start = str.IndexOf(":", _pos) + 1;
-                    end = str.IndexOf(";", start);
-                    var strInt = str.Substring(start, end - start);
-                    _pos += 3 + strInt.Length;
-                    return Int32.Parse(strInt, _nfi);
-                case 'd':
-                    start = str.IndexOf(":", _pos) + 1;
-                    end = str.IndexOf(";", start);
-                    var strDouble = str.Substring(start, end - start);
-                    _pos += 3 + strDouble.Length;
-                    return Double.Parse(strDouble, _nfi);
-                case 's':
-                    start = str.IndexOf(":", _pos) + 1;
-                    end = str.IndexOf(":", start);
-                    strLen = str.Substring(start, end - start);
-                    var byteLen = Int32.Parse(strLen);
-                    lenght = byteLen;
-                    if ((end + 2 + lenght) >= str.Length)
-                    {
-                        lenght = str.Length - 2 - end;
-                    }
-                    var strRet = str.Substring(end + 2, lenght);
-                    while (StringEncoding.GetByteCount(strRet) > byteLen)
-                    {
-                        lenght--;
-                        strRet = str.Substring(end + 2, lenght);
-                    }
-                    _pos += 6 + strLen.Length + lenght;
-                    return strRet;
-                case 'a':
-                    start = str.IndexOf(":", _pos) + 1;
-                    end = str.IndexOf(":", start);
-                    strLen = str.Substring(start, end - start);
-                    lenght = Int32.Parse(strLen);
-                    var htRet = new Dictionary<object, object>();
-                    var alRet = new List<object>();
-
-                    _pos += 4 + strLen.Length;
-
-                    for (int i = 0; i < lenght; i++)
-                    {
-                        var key = deserialize(str);
-                        var value = deserialize(str);
-
-                        if (alRet != null)
-                        {
-                            if (key is int && (int)key == alRet.Count)
-                            {
-                                alRet.Add(value);
-                            }
-                            else
-                            {
-                                alRet = null;
-                            }
-                        }
-                        htRet[key] = value;
-                    }
-                    _pos++;
-                    if (_pos < str.Length && str[_pos] == ';')
-                    {
-                        _pos++;
-                    }
-                    return alRet != null ? (object)alRet : htRet;
-                default:
-                    if (!str.Contains(";"))
-                    {
-                        return str;
-                    }
-                    return "";
+                Write($"i:{iValue};");
             }
+            else if (value is long lValue)
+            {
+                Write($"i:{lValue};");
+            }
+            else if (value is ulong ulValue)
+            {
+                Write($"i:{ulValue};");
+            }
+            else if (value is uint uiValue)
+            {
+                Write($"i:{uiValue};");
+            }
+            else if (value is string str)
+            {
+                WriteString(str);
+            }
+            else if (value is bool b)
+            {
+                Write($"b:{(b ? 1 : 0)};");
+            }
+            else if (value is IDictionary<object, object> dictionary)
+            {
+                Serialize(dictionary);
+            }
+            else if (value is IEnumerable enumerable)
+            {
+                Serialize(enumerable.OfType<object>());
+            }
+            else
+            {
+                Serialize(value);
+            }
+        }
+
+        private void Write(string text)
+        {
+            _writer.Write(text);
+            _writer.Flush();
+        }
+
+        private void WriteString(string text)
+        {
+            var utf8 = new UTF8Encoding(false);
+            var bytes = utf8.GetByteCount(text);
+            Write($"s:{bytes}:\"{text}\";");
+        }
+
+        public void Dispose()
+        {
         }
     }
 }
